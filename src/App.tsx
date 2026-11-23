@@ -6,8 +6,8 @@ import {
   Settings, Shield, ShieldCheck, Sparkles, Users, Wifi, X, Zap
 } from 'lucide-react';
 
-type Page = 'Dashboard' | 'Server Structure' | 'Channels' | 'Roles' | 'Permissions' | 'Templates' | 'Bulk Actions' | 'Activity Logs' | 'Settings';
-const pageLabels: Record<Page, string> = { Dashboard: 'Genel Bakış', 'Server Structure': 'Sunucu Yapısı', Channels: 'Kanallar', Roles: 'Roller', Permissions: 'İzinler', Templates: 'Şablonlar', 'Bulk Actions': 'Toplu İşlemler', 'Activity Logs': 'İşlem Geçmişi', Settings: 'Ayarlar' };
+type Page = 'Dashboard' | 'Server Structure' | 'Channels' | 'Roles' | 'Permissions' | 'Members' | 'Messages' | 'Templates' | 'Bulk Actions' | 'Activity Logs' | 'Settings';
+const pageLabels: Record<Page, string> = { Dashboard: 'Genel Bakış', 'Server Structure': 'Sunucu Yapısı', Channels: 'Kanallar', Roles: 'Roller', Permissions: 'İzinler', Members: 'Üye Yönetimi', Messages: 'Mesaj Yönetimi', Templates: 'Şablonlar', 'Bulk Actions': 'Toplu İşlemler', 'Activity Logs': 'İşlem Geçmişi', Settings: 'Ayarlar' };
 type Channel = { id?: string; name: string; type: 'text' | 'voice'; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[] };
 type Category = { id?: string; name: string; channels: Channel[]; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[] };
 type ActivityEntry = { id: number; action: string; detail: string; time: string; };
@@ -70,7 +70,7 @@ const rolePermissionBits = [
 ];
 const navigation: { group: string; items: { label: Page; icon: typeof LayoutDashboard }[] }[] = [
   { group: 'ÇALIŞMA ALANI', items: [{ label: 'Dashboard', icon: LayoutDashboard }, { label: 'Server Structure', icon: Folder }, { label: 'Channels', icon: Hash }, { label: 'Roles', icon: ShieldCheck }, { label: 'Permissions', icon: LockKeyhole }] },
-  { group: 'YÖNETİM', items: [{ label: 'Templates', icon: Blocks }, { label: 'Bulk Actions', icon: Zap }, { label: 'Activity Logs', icon: ClipboardList }] },
+  { group: 'YÖNETİM', items: [{ label: 'Members', icon: Users }, { label: 'Messages', icon: MessageSquare }, { label: 'Templates', icon: Blocks }, { label: 'Bulk Actions', icon: Zap }, { label: 'Activity Logs', icon: ClipboardList }] },
   { group: 'TERCİHLER', items: [{ label: 'Settings', icon: Settings }] }
 ];
 const initialCategories: Category[] = [
@@ -106,6 +106,13 @@ function App() {
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkSuffix, setBulkSuffix] = useState('');
   const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([]);
+  const [members, setMembers] = useState<DiscordMember[]>([]);
+  const [memberQuery, setMemberQuery] = useState('');
+  const [memberLoading, setMemberLoading] = useState(false);
+  const [messageChannelId, setMessageChannelId] = useState('');
+  const [messages, setMessages] = useState<DiscordMessage[]>([]);
+  const [messageLoading, setMessageLoading] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [appVersion, setAppVersion] = useState('…');
   const [updateStatus, setUpdateStatus] = useState('idle');
   const [updateVersion, setUpdateVersion] = useState('');
@@ -149,6 +156,55 @@ function App() {
     setConnected(true);
   };
   const refreshStructure = async () => { const data = await window.whippin.getStructure(serverId); applyStructure(data); };
+  const refreshMembers = async () => {
+    if (!connected) return notify('Önce Discord sunucunuzu bağlayın.');
+    setMemberLoading(true);
+    try { const data = await window.whippin.getMembers({ guildId: serverId }); setMembers(data); notify(data.length + ' üye yüklendi.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Üyeler yüklenemedi.'); }
+    finally { setMemberLoading(false); }
+  };
+  const refreshMessages = async () => {
+    if (!messageChannelId) return notify('Önce bir yazı kanalı seçin.');
+    setMessageLoading(true);
+    try { const data = await window.whippin.getMessages({ channelId: messageChannelId }); setMessages(data); setSelectedMessages([]); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Mesajlar yüklenemedi.'); }
+    finally { setMessageLoading(false); }
+  };
+  const memberAction = async (member: DiscordMember, action: 'timeout'|'kick'|'ban'|'nickname') => {
+    const id = member.user.id, name = member.nick || member.user.global_name || member.user.username;
+    try {
+      if (action === 'nickname') {
+        const nickname = window.prompt(name + ' için yeni takma ad (boş bırakmak sıfırlar):', member.nick || '');
+        if (nickname === null) return;
+        await window.whippin.updateMember({ guildId: serverId, userId: id, nickname: nickname.trim() || null });
+        logActivity('Üye takma adı değişti', name); notify('Üye takma adı güncellendi.');
+      } else if (action === 'timeout') {
+        if (!window.confirm(name + ' üyesine 10 dakika zaman aşımı uygulansın mı?')) return;
+        await window.whippin.updateMember({ guildId: serverId, userId: id, timeoutUntil: new Date(Date.now()+10*60*1000).toISOString() });
+        logActivity('Üyeye zaman aşımı', name + ' · 10 dakika'); notify('Zaman aşımı uygulandı.');
+      } else if (action === 'kick') {
+        if (!window.confirm(name + ' sunucudan atılsın mı?')) return;
+        await window.whippin.kickMember({ guildId: serverId, userId: id });
+        logActivity('Üye sunucudan atıldı', name); notify('Üye sunucudan atıldı.');
+      } else {
+        if (!window.confirm(name + ' sunucudan yasaklansın mı?')) return;
+        await window.whippin.banMember({ guildId: serverId, userId: id, reason: 'WHIPPIN üye yönetimi' });
+        logActivity('Üye yasaklandı', name); notify('Üye yasaklandı.');
+      }
+      await refreshMembers();
+    } catch (error) { notify(error instanceof Error ? error.message : 'Üye işlemi başarısız.'); }
+  };
+  const deleteSelectedMessages = async () => {
+    if (!messageChannelId || !selectedMessages.length) return;
+    if (!window.confirm(selectedMessages.length + ' mesaj kalıcı olarak silinsin mi?')) return;
+    setMessageLoading(true);
+    try {
+      if (selectedMessages.length === 1) await window.whippin.deleteMessage({ channelId: messageChannelId, messageId: selectedMessages[0] });
+      else await window.whippin.bulkDeleteMessages({ channelId: messageChannelId, messageIds: selectedMessages });
+      logActivity('Mesajlar silindi', selectedMessages.length + ' mesaj'); notify('Seçilen mesajlar silindi.'); await refreshMessages();
+    } catch (error) { notify(error instanceof Error ? error.message : 'Mesajlar silinemedi. Discord toplu silmede 14 günden eski mesajları kabul etmez.'); }
+    finally { setMessageLoading(false); }
+  };
   const connectServer = async () => {
     if (!serverId.trim() || !botToken.trim()) { notify('Bot tokenini ve sunucu kimliğini girin.'); return; }
     setBusy(true);
@@ -433,6 +489,31 @@ function App() {
             </> : <div className="empty-state compact"><LockKeyhole size={25}/><b>Önce hedef ve rol seçin</b><span>İzinleri görmek ve değiştirmek için yukarıdan kategori/kanal ile rol seçin.</span></div>}
           </>}
         </section>}
+        {page === 'Members' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>ÜYE YÖNETİM MERKEZİ</h3><p>Üyeleri ara, takma adlarını düzenle ve moderasyon işlemleri uygula</p></div><button className="primary-button small" disabled={!connected||memberLoading} onClick={refreshMembers}><Activity size={15}/>{memberLoading?'Yükleniyor…':'Üyeleri yenile'}</button></div>
+          {!connected ? <div className="empty-state compact"><Users size={26}/><b>Discord sunucunuzu bağlayın</b><span>Üye listesi ve moderasyon araçları bot izinleriyle çalışır.</span><button className="outline-button" onClick={()=>openModal('server')}>Discord'u bağla</button></div> : <>
+            <label className="field-label">ÜYE ARA<input value={memberQuery} onChange={e=>setMemberQuery(e.target.value)} placeholder="Kullanıcı adı, görünen ad veya kullanıcı kimliği…"/></label>
+            <div className="notice"><Shield size={16}/><span>Atma, yasaklama ve zaman aşımı işlemleri gerçek sunucuda uygulanır. Botun üyeleri yönetme, üyeleri atma ve yasaklama izinlerine sahip olması gerekir.</span></div>
+            <div className="role-list">{members.filter(m=>[m.user.username,m.user.global_name||'',m.nick||'',m.user.id].some(v=>v.toLowerCase().includes(memberQuery.toLowerCase()))).map(member=><div className="role-row" key={member.user.id}>
+              <div className="role-color" style={{background:'#a879f5'}}/><div style={{flex:1,minWidth:0}}><b>{member.nick||member.user.global_name||member.user.username}</b><small style={{display:'block',color:'#92899d',fontSize:10}}>@{member.user.username} · {member.user.id} · {member.roles.length} rol</small></div>
+              {member.communication_disabled_until && <span className="coming-badge">ZAMAN AŞIMI</span>}
+              <button className="outline-button" disabled={busy} onClick={()=>memberAction(member,'nickname')}>Ad</button>
+              <button className="outline-button" disabled={busy} onClick={()=>memberAction(member,'timeout')}>10 dk sustur</button>
+              <button className="outline-button" disabled={busy} onClick={()=>memberAction(member,'kick')}>At</button>
+              <button className="icon-button danger-icon" disabled={busy} title="Yasakla" onClick={()=>memberAction(member,'ban')}><LockKeyhole size={15}/></button>
+            </div>)}</div>
+            {!members.length && <div className="empty-state compact"><Users size={24}/><b>Üye listesi henüz yüklenmedi</b><button className="outline-button" onClick={refreshMembers}>Üyeleri getir</button></div>}
+          </>}
+        </section>}
+        {page === 'Messages' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>MESAJ MODERASYONU</h3><p>Yazı kanallarındaki son mesajları görüntüleyin ve silin</p></div></div>
+          {!connected ? <div className="empty-state compact"><MessageSquare size={26}/><b>Discord sunucunuzu bağlayın</b></div> : <>
+            <div className="permission-target-grid"><label className="field-label">YAZI KANALI<select value={messageChannelId} onChange={e=>{setMessageChannelId(e.target.value);setMessages([]);setSelectedMessages([]);}}><option value="">Kanal seçin</option>{categories.flatMap(c=>c.channels.filter(ch=>ch.id&&ch.type==='text').map(ch=><option key={ch.id} value={ch.id}># {ch.name}</option>))}</select></label><div className="inline-actions" style={{alignItems:'end'}}><button className="primary-button small" disabled={!messageChannelId||messageLoading} onClick={refreshMessages}>{messageLoading?'Yükleniyor…':'Son 100 mesajı getir'}</button><button className="outline-button" disabled={!selectedMessages.length||messageLoading} onClick={deleteSelectedMessages}>Seçilenleri sil ({selectedMessages.length})</button></div></div>
+            <div className="notice warning-notice"><Shield size={16}/><span>Discord, toplu silme işleminde 14 günden eski mesajları kabul etmez. Eski mesajları tek tek silmek gerekir. Botta Mesajları Yönet ve Mesaj Geçmişini Oku izinleri olmalıdır.</span></div>
+            <div className="role-list">{messages.map(message=><label className="manager-channel" key={message.id} style={{display:'flex',alignItems:'flex-start',gap:12,cursor:'pointer',padding:12}}><input type="checkbox" checked={selectedMessages.includes(message.id)} onChange={e=>setSelectedMessages(old=>e.target.checked?[...old,message.id]:old.filter(id=>id!==message.id))}/><div style={{flex:1,minWidth:0}}><b>{message.author.global_name||message.author.username}</b><small style={{display:'block',color:'#92899d',fontSize:10}}>{new Date(message.timestamp).toLocaleString()}</small><span style={{display:'block',whiteSpace:'pre-wrap',overflowWrap:'anywhere',marginTop:5}}>{message.content||'[Metin içermeyen mesaj / ek]'}</span>{message.attachments?.map(file=><a key={file.url} href={file.url} target="_blank" rel="noreferrer">Ek dosyayı aç</a>)}</div></label>)}</div>
+            {!messages.length && <div className="empty-state compact"><MessageSquare size={24}/><b>Mesaj yok</b><span>Bir yazı kanalı seçip son mesajları getir.</span></div>}
+          </>}
+        </section>}
         {page === 'Templates' && <section className="panel manager-panel">
           <div className="panel-heading"><div><h3>SUNUCU ŞABLONLARI</h3><p>Bağlı Discord sunucunuzda hazır kanal düzeni oluşturun</p></div><span className="coming-badge">3 HAZIR ŞABLON</span></div>
           <div className="notice"><Blocks size={16}/><span>Şablonlar yalnızca kategori ve kanal ekler. Mevcut sunucu yapınızı silmez veya değiştirmez. Sonucu Sunucu Yapısı bölümünde görebilirsiniz.</span></div>
@@ -476,7 +557,7 @@ function App() {
             <div className="inline-actions" style={{justifyContent:'flex-end',marginTop:16}}><button className="outline-button" disabled={busy||!bulkSelected.length} onClick={()=>runBulkAction('delete')} style={{color:'#ff9b9b',borderColor:'#704044'}}>Seçilenleri sil</button><button className="primary-button" disabled={busy||!bulkSelected.length||(!bulkCategory&&!bulkPrefix&&!bulkSuffix)} onClick={()=>runBulkAction('update')}>{busy?'Uygulanıyor…':'Taşıma / yeniden adlandırmayı uygula'} <Zap size={15}/></button></div>
           </>}
         </section>}
-        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Bulk Actions' && page !== 'Activity Logs' && page !== 'Templates' && page !== 'Settings' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>Bu alanın arayüzü hazır; özellikleri sonraki geliştirme aşamasında eklenecek.</p><span className="coming-badge"><Sparkles size={13}/> Sonraki geliştirme aşamasında</span></section>}
+        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Members' && page !== 'Messages' && page !== 'Bulk Actions' && page !== 'Activity Logs' && page !== 'Templates' && page !== 'Settings' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>Bu alanın arayüzü hazır; özellikleri sonraki geliştirme aşamasında eklenecek.</p><span className="coming-badge"><Sparkles size={13}/> Sonraki geliştirme aşamasında</span></section>}
         <footer className="app-footer"><span>WHIPPIN <b>v{appVersion}</b></span><span>SUNUCU SAHİPLERİ İÇİN <i/> GÜVENLİ TASARIM</span></footer>
       </div>
     </main>
