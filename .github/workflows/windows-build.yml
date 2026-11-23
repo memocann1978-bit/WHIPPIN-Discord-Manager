@@ -13,7 +13,7 @@ on:
       - 'index.html'
       - '.github/workflows/windows-build.yml'
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: windows-latest
@@ -35,3 +35,15 @@ jobs:
           path: release/*.exe
           if-no-files-found: error
           retention-days: 14
+      - name: Publish GitHub Release for in-app updates
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.2.0
+          name: WHIPPIN v0.2.0
+          target_commitish: ${{ github.sha }}
+          files: |
+            release/*.exe
+            release/latest.yml
+            release/*.blockmap
+          make_latest: true
+          fail_on_unmatched_files: true
