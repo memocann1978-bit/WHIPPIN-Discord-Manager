@@ -9,6 +9,7 @@ import {
 type Page = 'Dashboard' | 'Server Structure' | 'Channels' | 'Roles' | 'Permissions' | 'Templates' | 'Bulk Actions' | 'Activity Logs' | 'Settings';
 type Channel = { id?: string; name: string; type: 'text' | 'voice' };
 type Category = { id?: string; name: string; channels: Channel[] };
+const permissionBits = [{key:'view',label:'View channel',bit:1024n},{key:'send',label:'Send messages',bit:2048n},{key:'manageMessages',label:'Manage messages',bit:8192n},{key:'manageChannels',label:'Manage channels',bit:16n},{key:'connect',label:'Connect to voice',bit:1048576n},{key:'speak',label:'Speak in voice',bit:2097152n}];
 const navigation: { group: string; items: { label: Page; icon: typeof LayoutDashboard }[] }[] = [
   { group: 'WORKSPACE', items: [{ label: 'Dashboard', icon: LayoutDashboard }, { label: 'Server Structure', icon: Folder }, { label: 'Channels', icon: Hash }, { label: 'Roles', icon: ShieldCheck }, { label: 'Permissions', icon: LockKeyhole }] },
   { group: 'MANAGEMENT', items: [{ label: 'Templates', icon: Blocks }, { label: 'Bulk Actions', icon: Zap }, { label: 'Activity Logs', icon: ClipboardList }] },
@@ -35,8 +36,13 @@ function App() {
   const [modal, setModal] = useState<'server' | 'channel' | 'category' | 'role' | null>(null);
   const [draft, setDraft] = useState('');
   const [channelType, setChannelType] = useState<'text' | 'voice'>('text');
+  const [permissionChannelId, setPermissionChannelId] = useState('');
+  const [permissionRoleName, setPermissionRoleName] = useState('');
+  const [permissionValues, setPermissionValues] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState('');
   const totalChannels = useMemo(() => categories.reduce((n, c) => n + c.channels.length, 0), [categories]);
+  const allChannels = useMemo(() => categories.flatMap(c => c.channels), [categories]);
+  const selectedPermissionRoleId = roleIds[permissionRoleName];
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2600); };
   const applyStructure = (data: Awaited<ReturnType<typeof window.whippin.getStructure>>) => {
     const categoryChannels = data.channels.filter(ch => ch.type === 4).sort((a,b) => a.position-b.position);
@@ -103,6 +109,22 @@ function App() {
     catch (error) { notify(error instanceof Error ? error.message : 'Role could not be deleted.'); }
     finally { setBusy(false); }
   };
+  const choosePermissionTarget = (channelId: string, roleName: string) => {
+    setPermissionChannelId(channelId); setPermissionRoleName(roleName);
+    const channel = allChannels.find(ch => ch.id === channelId) as (Channel & { permission_overwrites?: { id: string; allow: string; deny: string }[] }) | undefined;
+    const roleId = roleIds[roleName]; const overwrite = channel?.permission_overwrites?.find(o => o.id === roleId);
+    const allow = BigInt(overwrite?.allow || '0'); const deny = BigInt(overwrite?.deny || '0');
+    setPermissionValues(Object.fromEntries(permissionBits.map(p => [p.key, (allow & p.bit) !== 0n && (deny & p.bit) === 0n])));
+  };
+  const savePermissions = async () => {
+    if (!permissionChannelId || !selectedPermissionRoleId) return notify('Select a channel and role first.');
+    const channel = allChannels.find(ch => ch.id === permissionChannelId) as (Channel & { permission_overwrites?: { id: string; allow: string; deny: string }[] }) | undefined;
+    const existing = channel?.permission_overwrites?.find(o => o.id === selectedPermissionRoleId);
+    const mask = permissionBits.reduce((m,p) => m | p.bit, 0n); let allow = BigInt(existing?.allow || '0') & ~mask; let deny = BigInt(existing?.deny || '0') & ~mask;
+    for (const p of permissionBits) { if (permissionValues[p.key]) allow |= p.bit; else deny |= p.bit; }
+    setBusy(true); try { await window.whippin.setChannelPermissions({channelId:permissionChannelId,roleId:selectedPermissionRoleId,allow:allow.toString(),deny:deny.toString()}); await refreshStructure(); notify('Channel permissions saved to Discord.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Permissions could not be saved.'); } finally { setBusy(false); }
+  };
   const visibleCategories = categories.map(c => ({ ...c, channels: c.channels.filter(ch => ch.name.toLowerCase().includes(query.toLowerCase())) })).filter(c => c.name.toLowerCase().includes(query.toLowerCase()) || c.channels.length);
   const openModal = (kind: typeof modal) => { setDraft(''); setModal(kind); };
   const title = page === 'Server Structure' ? 'Server Structure' : page;
@@ -129,7 +151,22 @@ function App() {
         {page === 'Server Structure' && <section className="panel manager-panel"><div className="panel-heading"><div><h3>STRUCTURE EXPLORER</h3><p>Manage your categories and channels</p></div><div className="inline-actions"><button className="outline-button" onClick={() => openModal('category')}><Plus size={15}/> Category</button><button className="primary-button small" onClick={() => openModal('channel')}><Plus size={15}/> Channel</button></div></div>{!connected && <div className="notice"><Shield size={17}/><span><b>Preview mode</b> — Connect your Discord bot to load and edit your actual server.</span></div>}{visibleCategories.map(c=><div className="manager-category" key={c.id || c.name}><div className="manager-category-title"><Folder size={16}/><b>{c.name}</b><span>{c.channels.length} CHANNELS</span><button className="icon-button" onClick={() => notify('Category editing is not available yet.')}><Settings size={15}/></button></div>{c.channels.map(ch=><div className="manager-channel" key={ch.id || ch.name}><div>{ch.type === 'voice' ? <Headphones size={16}/> : <Hash size={16}/>}<span>{ch.name}</span><small>{ch.type.toUpperCase()}</small></div><button className="icon-button" onClick={() => connected ? removeChannel(c.name,ch) : notify('Connect your bot to make changes on Discord.')} title="Remove channel" disabled={busy}><X size={15}/></button></div>)}</div>)}</section>}
         {page === 'Channels' && <section className="panel manager-panel"><div className="panel-heading"><div><h3>CHANNEL MANAGER</h3><p>Create, organize and configure server channels</p></div><button className="primary-button small" onClick={() => openModal('channel')}><Plus size={15}/> New channel</button></div><div className="empty-state compact"><Hash size={25}/><b>Channel management workspace</b><span>Use Server Structure to browse and manage live channels.</span><button className="outline-button" onClick={() => setPage('Server Structure')}>Open structure explorer</button></div></section>}
         {page === 'Roles' && <section className="panel manager-panel"><div className="panel-heading"><div><h3>ROLE MANAGER</h3><p>Manage server roles and hierarchy</p></div><button className="primary-button small" onClick={() => openModal('role')}><Plus size={15}/> New role</button></div>{!connected && <div className="notice"><Shield size={17}/> Preview mode — sample roles are shown below.</div>}<div className="role-list">{roles.map((r,i)=><div className="role-row" key={roleIds[r] || r}><div className="role-color" style={{background:['#bd8cff','#f0b45f','#65a8e8','#65c7a2','#777181'][i%5]}}/><b>{r}</b><span>{i===0?'HIGHEST':r==='@everyone'?'DEFAULT':'ROLE'}</span>{connected && r !== '@everyone' && <button className="icon-button" onClick={() => removeRole(r)} title="Delete role" disabled={busy}><X size={15}/></button>}</div>)}</div></section>}
-        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
+
+        {page === 'Permissions' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>CHANNEL PERMISSION EDITOR</h3><p>Configure channel access for each server role</p></div></div>
+          {!connected ? <div className="empty-state compact"><LockKeyhole size={25}/><b>Connect a Discord server</b><span>Live permission management requires an official bot connection.</span><button className="outline-button" onClick={() => openModal('server')}>Connect Discord</button></div> : <>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,margin:'18px 0'}}>
+              <label className="field-label">CHANNEL<select value={permissionChannelId} onChange={e=>choosePermissionTarget(e.target.value,permissionRoleName)}><option value="">Select a channel</option>{allChannels.filter(ch=>ch.id).map(ch=><option key={ch.id} value={ch.id}>#{ch.name}</option>)}</select></label>
+              <label className="field-label">ROLE<select value={permissionRoleName} onChange={e=>choosePermissionTarget(permissionChannelId,e.target.value)}><option value="">Select a role</option>{roles.map(r=><option key={r} value={r}>{r}</option>)}</select></label>
+            </div>
+            <div className="notice"><Shield size={17}/><span>These are channel-specific role overrides. Other permission bits are preserved. Administrator permissions and Discord role hierarchy still apply.</span></div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(245px,1fr))',gap:12,marginTop:18}}>
+              {permissionBits.map(p=><button key={p.key} onClick={()=>setPermissionValues(old=>({...old,[p.key]:!old[p.key]}))} style={{display:'flex',alignItems:'center',gap:12,textAlign:'left',padding:15,borderRadius:12,border:'1px solid #30283b',background:permissionValues[p.key]?'rgba(145,91,220,.16)':'#15121b',color:'#eee',cursor:'pointer'}}><span style={{width:20,height:20,borderRadius:6,border:'1px solid #9c72dc',background:permissionValues[p.key]?'#9c72dc':'transparent',display:'grid',placeItems:'center'}}>{permissionValues[p.key]?'✓':''}</span><b style={{fontSize:13}}>{p.label}</b><span style={{marginLeft:'auto',fontSize:10,color:permissionValues[p.key]?'#c9a7ff':'#a39aaa'}}>{permissionValues[p.key]?'ALLOW':'DENY'}</span></button>)}
+            </div>
+            <div style={{display:'flex',justifyContent:'flex-end',marginTop:20}}><button className="primary-button" disabled={busy||!permissionChannelId||!selectedPermissionRoleId} onClick={savePermissions}>{busy?'Saving…':'Save permission overrides'} <ShieldCheck size={16}/></button></div>
+          </>}
+        </section>}
+        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
         <footer className="app-footer"><span>WHIPPIN <b>v0.1.0</b></span><span>BUILT FOR SERVER OWNERS <i/> SECURE BY DESIGN</span></footer>
       </div>
     </main>
