@@ -93,7 +93,8 @@ function App() {
     finally { setBusy(false); }
   };
   const addChannel = async () => {
-    const name = draft.trim().toLowerCase().replace(/\s+/g, '-');
+    const enteredName = draft.trim();
+    const name = channelType === 'voice' ? enteredName : enteredName.toLowerCase().replace(/\s+/g, '-');
     if (!name) return;
     if (!connected) { notify('Connect your Discord bot first.'); return; }
     setBusy(true);
@@ -102,11 +103,11 @@ function App() {
     finally { setBusy(false); }
   };
   const addCategory = async () => {
-    const name = draft.trim().toUpperCase();
+    const name = draft.trim();
     if (!name) return;
     if (!connected) { notify('Connect your Discord bot first.'); return; }
     setBusy(true);
-    try { await window.whippin.createChannel({ guildId: serverId, name: name.toLowerCase().replace(/\s+/g, '-') , type: 'category' }); await refreshStructure(); setDraft(''); setModal(null); logActivity('Category created', `Created ${name} category`); notify('Category created on Discord.'); }
+    try { await window.whippin.createChannel({ guildId: serverId, name, type: 'category' }); await refreshStructure(); setDraft(''); setModal(null); logActivity('Category created', `Created ${name} category`); notify('Category created on Discord.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Category could not be created.'); }
     finally { setBusy(false); }
   };
