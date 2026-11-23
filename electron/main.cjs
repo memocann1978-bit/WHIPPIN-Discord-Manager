@@ -93,6 +93,12 @@ function registerUpdateHandlers() {
     autoUpdater.quitAndInstall(false, true);
     return true;
   });
+  if (app.isPackaged) {
+    const checkAutomatically = () => autoUpdater.checkForUpdates().catch(error => send('error', { message: error.message }));
+    setTimeout(checkAutomatically, 8000);
+    const updateTimer = setInterval(checkAutomatically, 6 * 60 * 60 * 1000);
+    if (typeof updateTimer.unref === 'function') updateTimer.unref();
+  }
 }
 function createWindow() {
   const win = new BrowserWindow({
