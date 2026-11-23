@@ -55,7 +55,7 @@ function App() {
       channels: data.channels.filter(ch => ch.parent_id === cat.id && (ch.type === 0 || ch.type === 2)).sort((a,b) => a.position-b.position).map(ch => ({ id: ch.id, name: ch.name, type: ch.type === 2 ? 'voice' : 'text', permission_overwrites: ch.permission_overwrites }))
     }));
     const loose = data.channels.filter(ch => !ch.parent_id && ch.type !== 4 && (ch.type === 0 || ch.type === 2)).sort((a,b) => a.position-b.position);
-    if (loose.length) next.unshift({ name: 'UNCATEGORIZED', channels: loose.map(ch => ({ id: ch.id, name: ch.name, type: ch.type === 2 ? 'voice' : 'text' })) });
+    if (loose.length) next.unshift({ name: 'UNCATEGORIZED', channels: loose.map(ch => ({ id: ch.id, name: ch.name, type: ch.type === 2 ? 'voice' : 'text', permission_overwrites: ch.permission_overwrites })) });
     setCategories(next);
     setRoles(data.roles.slice().sort((a,b) => b.position-a.position).map(r => r.name));
     setRoleIds(Object.fromEntries(data.roles.map(r => [r.name,r.id])));
@@ -72,7 +72,7 @@ function App() {
     finally { setBusy(false); }
   };
   const addChannel = async () => {
-    const name = draft.trim().toLowerCase().replace(/\\s+/g, '-');
+    const name = draft.trim().toLowerCase().replace(/\s+/g, '-');
     if (!name) return;
     if (!connected) { notify('Connect your Discord bot first.'); return; }
     setBusy(true);
@@ -85,7 +85,7 @@ function App() {
     if (!name) return;
     if (!connected) { notify('Connect your Discord bot first.'); return; }
     setBusy(true);
-    try { await window.whippin.createChannel({ guildId: serverId, name: name.toLowerCase().replace(/\\s+/g, '-') , type: 'category' }); await refreshStructure(); setDraft(''); setModal(null); notify('Category created on Discord.'); }
+    try { await window.whippin.createChannel({ guildId: serverId, name: name.toLowerCase().replace(/\s+/g, '-') , type: 'category' }); await refreshStructure(); setDraft(''); setModal(null); notify('Category created on Discord.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Category could not be created.'); }
     finally { setBusy(false); }
   };
