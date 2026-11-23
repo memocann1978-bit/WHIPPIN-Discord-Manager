@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity, ArrowDownUp, Bell, Blocks, Bot, ChevronDown, ChevronLeft, ChevronRight,
   CircleHelp, ClipboardList, Clock3, Command, Crown, Folder, Hash, Headphones,
@@ -64,6 +64,25 @@ function App() {
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkSuffix, setBulkSuffix] = useState('');
   const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([]);
+  const [appVersion, setAppVersion] = useState('…');
+  const [updateStatus, setUpdateStatus] = useState('idle');
+  const [updateVersion, setUpdateVersion] = useState('');
+  const [updatePercent, setUpdatePercent] = useState(0);
+  const [updateMessage, setUpdateMessage] = useState('');
+  useEffect(() => {
+    window.whippin.getAppVersion().then(setAppVersion).catch(() => setAppVersion('unknown'));
+    return window.whippin.onUpdateStatus(event => {
+      setUpdateStatus(event.status);
+      if (event.version) setUpdateVersion(event.version);
+      if (typeof event.percent === 'number') setUpdatePercent(event.percent);
+      if (event.message) setUpdateMessage(event.message);
+    });
+  }, []);
+  const checkUpdates = async () => {
+    setUpdateStatus('checking'); setUpdateMessage('');
+    try { const result = await window.whippin.checkForUpdates(); if (result.status === 'development') setUpdateStatus('development'); if (result.version) setUpdateVersion(result.version); }
+    catch (error) { setUpdateStatus('error'); setUpdateMessage(error instanceof Error ? error.message : 'Update check failed.'); }
+  };
   const logActivity = (action: string, detail: string) => setActivityEntries(old => [{ id: Date.now() + Math.random(), action, detail, time: new Date().toLocaleString() }, ...old].slice(0, 100));
   const totalChannels = useMemo(() => categories.reduce((n, c) => n + c.channels.length, 0), [categories]);
   const allChannels = useMemo(() => categories.flatMap(c => c.channels), [categories]);
@@ -245,6 +264,16 @@ function App() {
           {!activityEntries.length ? <div className="empty-state compact"><ClipboardList size={27}/><b>No activity yet</b><span>Successful server changes will appear here with their action and time.</span></div> : <div className="role-list">{activityEntries.map(entry=><div className="role-row" key={entry.id}><div className="role-color" style={{background:'#a879f5'}}/><div style={{flex:1,minWidth:0}}><b>{entry.action}</b><small style={{display:'block',fontSize:10,color:'#92899d',marginTop:4}}>{entry.detail}</small></div><time style={{fontSize:9,color:'#92899d',whiteSpace:'nowrap'}}>{entry.time}</time></div>)}</div>}
           <div className="notice"><Clock3 size={16}/><span>Activity history is currently kept for this app session and is cleared when the application is restarted.</span></div>
         </section>}
+        {page === 'Settings' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>APPLICATION SETTINGS</h3><p>Manage WHIPPIN updates and application information</p></div><span className="coming-badge">VERSION {appVersion}</span></div>
+          <div className="manager-category" style={{padding:18}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}><div className="stat-icon" style={{width:42,height:42}}><Zap size={20}/></div><div><b style={{fontSize:13}}>WHIPPIN Auto Update</b><div style={{fontSize:10,color:'#91889d',marginTop:4}}>Check GitHub for the latest official version and install it without downloading an installer manually.</div></div></div>
+            <div className="detail-line"><span>Installed version</span><b>v{appVersion}</b></div><div className="detail-line"><span>Latest version</span><b>{updateVersion ? `v${updateVersion}` : 'Not checked yet'}</b></div>
+            {updateStatus === 'downloading' && <div style={{marginTop:16}}><div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#cbb6e6',marginBottom:7}}><span>Downloading update…</span><b>{updatePercent}%</b></div><div style={{height:7,background:'#292231',borderRadius:8,overflow:'hidden'}}><div style={{height:'100%',width:`${updatePercent}%`,background:'linear-gradient(90deg,#8050bd,#c49aff)',transition:'width .2s'}}/></div></div>}
+            <div className="notice" style={{marginTop:16}}><Shield size={16}/><span>{updateStatus === 'checking' ? 'Checking GitHub Releases…' : updateStatus === 'available' ? `Version ${updateVersion} found. It is downloading automatically.` : updateStatus === 'downloading' ? 'The update is downloading in the background. You can keep using WHIPPIN.' : updateStatus === 'downloaded' ? `Version ${updateVersion} is ready. Restart WHIPPIN to install it.` : updateStatus === 'not-available' ? 'You are using the latest version of WHIPPIN.' : updateStatus === 'development' ? 'Update checks are available in the installed Windows version.' : updateStatus === 'error' ? `Update error: ${updateMessage}` : 'Updates are delivered through official WHIPPIN GitHub Releases.'}</span></div>
+            <div className="inline-actions" style={{justifyContent:'flex-end',marginTop:16}}><button className="outline-button" disabled={updateStatus === 'checking' || updateStatus === 'downloading'} onClick={checkUpdates}><Activity size={14}/> Check for updates</button>{updateStatus === 'downloaded' && <button className="primary-button" onClick={() => window.whippin.installUpdate()}>Restart & install <ChevronRight size={15}/></button>}</div>
+          </div><div className="notice"><LockKeyhole size={16}/><span>Only updates published by the official WHIPPIN repository are checked. Your Discord bot token remains stored locally in Windows secure storage.</span></div>
+        </section>}
         {page === 'Bulk Actions' && <section className="panel manager-panel">
           <div className="panel-heading"><div><h3>BULK CHANNEL OPERATIONS</h3><p>Select channels and apply changes across your server</p></div><span className="coming-badge">{bulkSelected.length} SELECTED</span></div>
           {!connected ? <div className="empty-state compact"><Zap size={25}/><b>Connect a Discord server</b><span>Bulk operations run against your live server through your official bot.</span><button className="outline-button" onClick={() => openModal('server')}>Connect Discord</button></div> : <>
@@ -259,7 +288,7 @@ function App() {
             <div className="inline-actions" style={{justifyContent:'flex-end',marginTop:16}}><button className="outline-button" disabled={busy||!bulkSelected.length} onClick={()=>runBulkAction('delete')} style={{color:'#ff9b9b',borderColor:'#704044'}}>Delete selected</button><button className="primary-button" disabled={busy||!bulkSelected.length||(!bulkCategory&&!bulkPrefix&&!bulkSuffix)} onClick={()=>runBulkAction('update')}>{busy?'Applying…':'Apply move / rename'} <Zap size={15}/></button></div>
           </>}
         </section>}
-        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Bulk Actions' && page !== 'Activity Logs' && page !== 'Templates' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
+        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Bulk Actions' && page !== 'Activity Logs' && page !== 'Templates' && page !== 'Settings' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
         <footer className="app-footer"><span>WHIPPIN <b>v0.1.0</b></span><span>BUILT FOR SERVER OWNERS <i/> SECURE BY DESIGN</span></footer>
       </div>
     </main>
