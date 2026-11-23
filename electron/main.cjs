@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, safeStorage } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const fs = require('node:fs');
 const credentialPath = () => path.join(app.getPath('userData'), 'discord-credential.bin');
@@ -69,6 +70,30 @@ function registerDiscordHandlers() {
   ipcMain.handle('discord:delete-role', async (_event, { guildId, roleId }) => discord('/guilds/' + guildId + '/roles/' + roleId, { method: 'DELETE' }));
   ipcMain.handle('discord:disconnect', async () => { if (fs.existsSync(credentialPath())) fs.unlinkSync(credentialPath()); return true; });
 }
+function registerUpdateHandlers() {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  const send = (status, extra = {}) => BrowserWindow.getAllWindows().forEach(win => {
+    if (!win.isDestroyed()) win.webContents.send('app:update-status', { status, ...extra });
+  });
+  autoUpdater.on('checking-for-update', () => send('checking'));
+  autoUpdater.on('update-available', info => send('available', { version: info.version }));
+  autoUpdater.on('update-not-available', info => send('not-available', { version: info.version }));
+  autoUpdater.on('download-progress', progress => send('downloading', { percent: Math.round(progress.percent), transferred: progress.transferred, total: progress.total }));
+  autoUpdater.on('update-downloaded', info => send('downloaded', { version: info.version }));
+  autoUpdater.on('error', error => send('error', { message: error.message }));
+  ipcMain.handle('app:version', () => app.getVersion());
+  ipcMain.handle('app:check-updates', async () => {
+    if (!app.isPackaged) return { status: 'development' };
+    const result = await autoUpdater.checkForUpdates();
+    return { status: 'checking', version: result?.updateInfo?.version };
+  });
+  ipcMain.handle('app:install-update', () => {
+    if (!app.isPackaged) throw new Error('Updates are available only in the installed application.');
+    autoUpdater.quitAndInstall(false, true);
+    return true;
+  });
+}
 function createWindow() {
   const win = new BrowserWindow({
     width: 1500, height: 940, minWidth: 1120, minHeight: 720,
@@ -79,5 +104,5 @@ function createWindow() {
   if (!app.isPackaged) win.loadURL('http://127.0.0.1:5173');
   else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
 }
-app.whenReady().then(() => { registerDiscordHandlers(); createWindow(); app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); }); });
+app.whenReady().then(() => { registerDiscordHandlers(); registerUpdateHandlers(); createWindow(); app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); }); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
