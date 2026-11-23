@@ -142,7 +142,7 @@ function App() {
     let created = 0;
     try {
       for (const category of template.categories) {
-        const createdCategory = await window.whippin.createChannel({ guildId: serverId, name: category.name.toLowerCase().replace(/\\s+/g, '-'), type: 'category' });
+        const createdCategory = await window.whippin.createChannel({ guildId: serverId, name: category.name.toLowerCase().replace(/\s+/g, '-'), type: 'category' });
         logActivity('Template category created', category.name);
         for (const channel of category.channels) {
           await window.whippin.createChannel({ guildId: serverId, name: channel.name, type: channel.type, parentId: createdCategory.id });
