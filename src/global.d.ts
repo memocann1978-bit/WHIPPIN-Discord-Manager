@@ -9,6 +9,7 @@ declare global {
       updateChannel(payload: { channelId: string; name?: string; parentId?: string | null }): Promise<DiscordChannel>;
       reorderChannels(payload: { guildId: string; positions: { id: string; position: number; parent_id?: string | null }[] }): Promise<DiscordChannel[]>;
       setRolePermissions(payload: { guildId: string; roleId: string; permissions: string }): Promise<DiscordRole>;
+      syncCategoryPermissions(categoryId: string): Promise<{ synced: number; failed: { id: string; message: string }[] }>;
       bulkDeleteChannels(channelIds: string[]): Promise<{ succeeded: string[]; failed: { id: string; message: string }[] }>;
       bulkUpdateChannels(payload: { channelIds: string[]; parentId?: string | null; prefix: string; suffix: string }): Promise<{ succeeded: string[]; failed: { id: string; message: string }[] }>;
       setChannelPermissions(payload: { channelId: string; roleId: string; allow: string; deny: string }): Promise<null>;
