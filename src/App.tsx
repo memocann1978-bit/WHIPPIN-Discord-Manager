@@ -10,6 +10,24 @@ type Page = 'Dashboard' | 'Server Structure' | 'Channels' | 'Roles' | 'Permissio
 type Channel = { id?: string; name: string; type: 'text' | 'voice'; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[] };
 type Category = { id?: string; name: string; channels: Channel[] };
 type ActivityEntry = { id: number; action: string; detail: string; time: string; };
+type ServerTemplate = { id: string; name: string; description: string; categories: { name: string; channels: { name: string; type: 'text' | 'voice' }[] }[] };
+const serverTemplates: ServerTemplate[] = [
+  { id: 'community', name: 'Community Server', description: 'Welcome, announcements, community chat and staff spaces.', categories: [
+    { name: 'INFORMATION', channels: [{name:'welcome',type:'text'},{name:'announcements',type:'text'},{name:'rules',type:'text'}] },
+    { name: 'COMMUNITY', channels: [{name:'general',type:'text'},{name:'media',type:'text'},{name:'voice-chat',type:'voice'}] },
+    { name: 'STAFF', channels: [{name:'staff-chat',type:'text'},{name:'mod-logs',type:'text'}] }
+  ]},
+  { id: 'gaming', name: 'Gaming Server', description: 'Game updates, looking-for-group channels and voice rooms.', categories: [
+    { name: 'SERVER INFO', channels: [{name:'welcome',type:'text'},{name:'news',type:'text'},{name:'rules',type:'text'}] },
+    { name: 'GAMING', channels: [{name:'general-chat',type:'text'},{name:'looking-for-group',type:'text'},{name:'clips-and-screenshots',type:'text'},{name:'party-1',type:'voice'},{name:'party-2',type:'voice'}] },
+    { name: 'TEAM', channels: [{name:'team-chat',type:'text'},{name:'team-voice',type:'voice'}] }
+  ]},
+  { id: 'creator', name: 'Creator Server', description: 'Creator announcements, content sharing and audience hangout.', categories: [
+    { name: 'START HERE', channels: [{name:'welcome',type:'text'},{name:'announcements',type:'text'},{name:'schedule',type:'text'}] },
+    { name: 'CONTENT', channels: [{name:'new-videos',type:'text'},{name:'live-chat',type:'text'},{name:'suggestions',type:'text'}] },
+    { name: 'HANGOUT', channels: [{name:'general',type:'text'},{name:'voice-lounge',type:'voice'}] }
+  ]}
+];
 const permissionBits = [{key:'view',label:'View channel',bit:1024n},{key:'send',label:'Send messages',bit:2048n},{key:'manageMessages',label:'Manage messages',bit:8192n},{key:'manageChannels',label:'Manage channels',bit:16n},{key:'connect',label:'Connect to voice',bit:1048576n},{key:'speak',label:'Speak in voice',bit:2097152n}];
 const navigation: { group: string; items: { label: Page; icon: typeof LayoutDashboard }[] }[] = [
   { group: 'WORKSPACE', items: [{ label: 'Dashboard', icon: LayoutDashboard }, { label: 'Server Structure', icon: Folder }, { label: 'Channels', icon: Hash }, { label: 'Roles', icon: ShieldCheck }, { label: 'Permissions', icon: LockKeyhole }] },
@@ -116,6 +134,30 @@ function App() {
     catch (error) { notify(error instanceof Error ? error.message : 'Role could not be deleted.'); }
     finally { setBusy(false); }
   };
+  const applyTemplate = async (template: ServerTemplate) => {
+    if (!connected) return notify('Connect your Discord bot first.');
+    const channelCount = template.categories.reduce((n, category) => n + category.channels.length, 0);
+    if (!window.confirm(`Apply "${template.name}"? This will create ${template.categories.length} categories and ${channelCount} channels on your live Discord server. Existing channels will not be changed.`)) return;
+    setBusy(true);
+    let created = 0;
+    try {
+      for (const category of template.categories) {
+        const createdCategory = await window.whippin.createChannel({ guildId: serverId, name: category.name.toLowerCase().replace(/\\s+/g, '-'), type: 'category' });
+        logActivity('Template category created', category.name);
+        for (const channel of category.channels) {
+          await window.whippin.createChannel({ guildId: serverId, name: channel.name, type: channel.type, parentId: createdCategory.id });
+          created += 1;
+        }
+      }
+      await refreshStructure();
+      logActivity('Template applied', `${template.name}: ${template.categories.length} categories, ${created} channels`);
+      notify(`${template.name} applied successfully.`);
+    } catch (error) {
+      try { await refreshStructure(); } catch {}
+      logActivity('Template partially applied', `${template.name}: ${created} channels created before an error`);
+      notify(error instanceof Error ? `Template stopped after ${created} channels: ${error.message}` : 'Template could not be completed.');
+    } finally { setBusy(false); }
+  };
   const runBulkAction = async (action: 'delete' | 'update') => {
     if (!connected) return notify('Connect your Discord bot first.');
     if (!bulkSelected.length) return notify('Select at least one channel.');
@@ -183,6 +225,20 @@ function App() {
             <div style={{display:'flex',justifyContent:'flex-end',marginTop:20}}><button className="primary-button" disabled={busy||!permissionChannelId||!selectedPermissionRoleId} onClick={savePermissions}>{busy?'Saving…':'Save permission overrides'} <ShieldCheck size={16}/></button></div>
           </>}
         </section>}
+        {page === 'Templates' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>SERVER TEMPLATES</h3><p>Build a ready-made channel layout on your connected Discord server</p></div><span className="coming-badge">3 PRESETS</span></div>
+          <div className="notice"><Blocks size={16}/><span>Templates only add categories and channels. They never delete or overwrite your existing server structure. You can review the result in Server Structure.</span></div>
+          <div className="template-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:13,marginTop:16}}>
+            {serverTemplates.map(template=><article key={template.id} className="stat-card" style={{minHeight:230,display:'flex',flexDirection:'column',alignItems:'flex-start'}}>
+              <div className="stat-icon" style={{width:42,height:42}}><Blocks size={20}/></div>
+              <h3 style={{fontFamily:'Space Grotesk',fontSize:15,margin:'15px 0 6px'}}>{template.name}</h3>
+              <p style={{fontSize:10,color:'#92899d',lineHeight:1.6,minHeight:34,margin:0}}>{template.description}</p>
+              <div style={{display:'flex',gap:7,flexWrap:'wrap',margin:'13px 0',fontSize:9,color:'#bca1df'}}><span>{template.categories.length} categories</span><span>·</span><span>{template.categories.reduce((n,c)=>n+c.channels.length,0)} channels</span></div>
+              <button className="primary-button small" style={{marginTop:'auto'}} disabled={busy||!connected} onClick={()=>applyTemplate(template)}>{busy?'Applying…':'Apply template'} <ChevronRight size={14}/></button>
+            </article>)}
+          </div>
+          {!connected && <div className="empty-state compact"><Server size={24}/><b>Connect your server to apply templates</b><span>Presets can be previewed here, but changes require an official bot connection.</span><button className="outline-button" onClick={()=>openModal('server')}>Connect Discord</button></div>}
+        </section>}
         {page === 'Activity Logs' && <section className="panel manager-panel">
           <div className="panel-heading"><div><h3>WORKSPACE ACTIVITY</h3><p>Recent actions performed from this WHIPPIN session</p></div><div className="inline-actions"><span className="coming-badge">{activityEntries.length} EVENTS</span><button className="outline-button" disabled={!activityEntries.length} onClick={()=>setActivityEntries([])}>Clear history</button></div></div>
           {!activityEntries.length ? <div className="empty-state compact"><ClipboardList size={27}/><b>No activity yet</b><span>Successful server changes will appear here with their action and time.</span></div> : <div className="role-list">{activityEntries.map(entry=><div className="role-row" key={entry.id}><div className="role-color" style={{background:'#a879f5'}}/><div style={{flex:1,minWidth:0}}><b>{entry.action}</b><small style={{display:'block',fontSize:10,color:'#92899d',marginTop:4}}>{entry.detail}</small></div><time style={{fontSize:9,color:'#92899d',whiteSpace:'nowrap'}}>{entry.time}</time></div>)}</div>}
@@ -202,7 +258,7 @@ function App() {
             <div className="inline-actions" style={{justifyContent:'flex-end',marginTop:16}}><button className="outline-button" disabled={busy||!bulkSelected.length} onClick={()=>runBulkAction('delete')} style={{color:'#ff9b9b',borderColor:'#704044'}}>Delete selected</button><button className="primary-button" disabled={busy||!bulkSelected.length||(!bulkCategory&&!bulkPrefix&&!bulkSuffix)} onClick={()=>runBulkAction('update')}>{busy?'Applying…':'Apply move / rename'} <Zap size={15}/></button></div>
           </>}
         </section>}
-        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Bulk Actions' && page !== 'Activity Logs' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
+        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Bulk Actions' && page !== 'Activity Logs' && page !== 'Templates' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
         <footer className="app-footer"><span>WHIPPIN <b>v0.1.0</b></span><span>BUILT FOR SERVER OWNERS <i/> SECURE BY DESIGN</span></footer>
       </div>
     </main>
