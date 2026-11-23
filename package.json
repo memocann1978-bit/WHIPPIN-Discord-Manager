@@ -1,6 +1,6 @@
 {
   "name": "whippin-discord-manager",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Premium Discord server structure manager",
   "main": "electron/main.cjs",
@@ -23,7 +23,8 @@
     "electron-builder": "^25.1.8",
     "typescript": "~5.6.2",
     "vite": "^6.0.5",
-    "wait-on": "^8.0.1"
+    "wait-on": "^8.0.1",
+    "electron-updater": "^6.6.2"
   },
   "build": {
     "appId": "gg.whippin.manager",
@@ -50,6 +51,14 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "memocann1978-bit",
+        "repo": "WHIPPIN-Discord-Manager",
+        "releaseType": "release"
+      }
+    ]
   }
 }
