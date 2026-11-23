@@ -219,7 +219,27 @@ function App() {
     catch (error) { notify(error instanceof Error ? error.message : 'Denetim kayıtları alınamadı. Botta Denetim Kaydını Görüntüle izni olmalı.'); }
     finally { setAuditLoading(false); }
   };
-  const memberAction = async (member: DiscordMember, action: 'timeout'|'kick'|'ban'|'nickname') => {
+  const editMemberRoles = async (member: DiscordMember) => {
+    const available = roleData.filter(role => role.name !== '@everyone');
+    const current = available.filter(role => member.roles.includes(role.id)).map(role => role.name).join(', ');
+    const entered = window.prompt('Üyenin rollerini virgülle ayırarak yazın. Boş bırakmak tüm rolleri kaldırır.\\n\\nMevcut roller: ' + (current || 'Yok') + '\\n\\nKullanılabilir roller: ' + available.map(role => role.name).join(', '), current);
+    if (entered === null) return;
+    const names = entered.split(',').map(name => name.trim().toLocaleLowerCase('tr')).filter(Boolean);
+    const matched = available.filter(role => names.includes(role.name.toLocaleLowerCase('tr')));
+    const unknown = names.filter(name => !available.some(role => role.name.toLocaleLowerCase('tr') === name));
+    if (unknown.length) return notify('Bulunamayan roller: ' + unknown.join(', '));
+    try { await window.whippin.updateMember({ guildId: serverId, userId: member.user.id, roles: matched.map(role => role.id) }); logActivity('Üye rolleri güncellendi', member.user.username + ' · ' + (matched.map(role => role.name).join(', ') || 'Rol yok')); notify('Üye rolleri güncellendi.'); await refreshMembers(); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Üye rolleri güncellenemedi. Botun Rolleri Yönet izni ve yeterli rol konumu olmalı.'); }
+  };
+  const loadMoreMembers = async () => {
+    const after = members[members.length - 1]?.user.id;
+    if (!after) return;
+    setMemberLoading(true);
+    try { const next = await window.whippin.getMembers({ guildId: serverId, after }); setMembers(old => [...old, ...next.filter(item => !old.some(existing => existing.user.id === item.user.id))]); if (next.length < 1000) notify('Tüm üyeler yüklendi.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Diğer üyeler yüklenemedi.'); }
+    finally { setMemberLoading(false); }
+  };
+  const memberAction = async (member: DiscordMember, action: 'timeout'|'untimeout'|'kick'|'ban'|'nickname') => {
     const id = member.user.id, name = member.nick || member.user.global_name || member.user.username;
     try {
       if (action === 'nickname') {
@@ -231,7 +251,7 @@ function App() {
         if (!window.confirm(name + ' üyesine 10 dakika zaman aşımı uygulansın mı?')) return;
         await window.whippin.updateMember({ guildId: serverId, userId: id, timeoutUntil: new Date(Date.now()+10*60*1000).toISOString() });
         logActivity('Üyeye zaman aşımı', name + ' · 10 dakika'); notify('Zaman aşımı uygulandı.');
-      } else if (action === 'kick') {
+      } else if (action === 'untimeout') {\n        await window.whippin.updateMember({ guildId: serverId, userId: id, timeoutUntil: null });\n        logActivity('Üye zaman aşımı kaldırıldı', name); notify('Üyenin zaman aşımı kaldırıldı.');\n      } else if (action === 'kick') {
         if (!window.confirm(name + ' sunucudan atılsın mı?')) return;
         await window.whippin.kickMember({ guildId: serverId, userId: id });
         logActivity('Üye sunucudan atıldı', name); notify('Üye sunucudan atıldı.');
@@ -547,11 +567,11 @@ function App() {
               <div className="role-color" style={{background:'#a879f5'}}/><div style={{flex:1,minWidth:0}}><b>{member.nick||member.user.global_name||member.user.username}</b><small style={{display:'block',color:'#92899d',fontSize:10}}>@{member.user.username} · {member.user.id} · {member.roles.length} rol</small></div>
               {member.communication_disabled_until && <span className="coming-badge">ZAMAN AŞIMI</span>}
               <button className="outline-button" disabled={busy} onClick={()=>memberAction(member,'nickname')}>Ad</button>
-              <button className="outline-button" disabled={busy} onClick={()=>memberAction(member,'timeout')}>10 dk sustur</button>
+              <button className="outline-button" disabled={busy} onClick={()=>editMemberRoles(member)}>Roller</button>{member.communication_disabled_until ? <button className="outline-button" disabled={busy} onClick={()=>memberAction(member,'untimeout')}>Susturmayı kaldır</button> : <button className="outline-button" disabled={busy} onClick={()=>memberAction(member,'timeout')}>10 dk sustur</button>}
               <button className="outline-button" disabled={busy} onClick={()=>memberAction(member,'kick')}>At</button>
               <button className="icon-button danger-icon" disabled={busy} title="Yasakla" onClick={()=>memberAction(member,'ban')}><LockKeyhole size={15}/></button>
             </div>)}</div>
-            {!members.length && <div className="empty-state compact"><Users size={24}/><b>Üye listesi henüz yüklenmedi</b><button className="outline-button" onClick={refreshMembers}>Üyeleri getir</button></div>}
+            {!members.length && <div className="empty-state compact"><Users size={24}/><b>Üye listesi henüz yüklenmedi</b><button className="outline-button" onClick={refreshMembers}>Üyeleri getir</button></div>}{members.length >= 1000 && <div className="inline-actions" style={{justifyContent:'center',marginTop:14}}><button className="outline-button" disabled={memberLoading} onClick={loadMoreMembers}>{memberLoading?'Yükleniyor…':'Daha fazla üye yükle'}</button></div>}
           </>}
         </section>}
         {page === 'Messages' && <section className="panel manager-panel">
