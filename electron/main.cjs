@@ -68,7 +68,7 @@ function registerDiscordHandlers() {
     if (typeof code !== 'string' || !/^[a-zA-Z0-9-]{2,32}$/.test(code)) throw new Error('Geçersiz davet kodu.');
     return discord('/invites/' + code, { method: 'DELETE' });
   });
-  ipcMain.handle('discord:audit-logs', async (_event, guildId) => discord('/guilds/' + guildId + '/audit-logs?limit=100'));
+  ipcMain.handle('discord:audit-logs', async (_event, guildId) => { const result = await discord('/guilds/' + guildId + '/audit-logs?limit=100'); return result.audit_log_entries || []; });
 
   ipcMain.handle('discord:get-messages', async (_event, { channelId, before }) => {
     if (typeof channelId !== 'string' || !/^\\d{17,20}$/.test(channelId)) throw new Error('Geçersiz kanal kimliği.');
