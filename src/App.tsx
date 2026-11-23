@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 type Page = 'Dashboard' | 'Server Structure' | 'Channels' | 'Roles' | 'Permissions' | 'Templates' | 'Bulk Actions' | 'Activity Logs' | 'Settings';
-type Channel = { id?: string; name: string; type: 'text' | 'voice' };
+type Channel = { id?: string; name: string; type: 'text' | 'voice'; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[] };
 type Category = { id?: string; name: string; channels: Channel[] };
 const permissionBits = [{key:'view',label:'View channel',bit:1024n},{key:'send',label:'Send messages',bit:2048n},{key:'manageMessages',label:'Manage messages',bit:8192n},{key:'manageChannels',label:'Manage channels',bit:16n},{key:'connect',label:'Connect to voice',bit:1048576n},{key:'speak',label:'Speak in voice',bit:2097152n}];
 const navigation: { group: string; items: { label: Page; icon: typeof LayoutDashboard }[] }[] = [
@@ -48,7 +48,7 @@ function App() {
     const categoryChannels = data.channels.filter(ch => ch.type === 4).sort((a,b) => a.position-b.position);
     const next: Category[] = categoryChannels.map(cat => ({
       id: cat.id, name: cat.name.toUpperCase(),
-      channels: data.channels.filter(ch => ch.parent_id === cat.id && (ch.type === 0 || ch.type === 2)).sort((a,b) => a.position-b.position).map(ch => ({ id: ch.id, name: ch.name, type: ch.type === 2 ? 'voice' : 'text' }))
+      channels: data.channels.filter(ch => ch.parent_id === cat.id && (ch.type === 0 || ch.type === 2)).sort((a,b) => a.position-b.position).map(ch => ({ id: ch.id, name: ch.name, type: ch.type === 2 ? 'voice' : 'text', permission_overwrites: ch.permission_overwrites }))
     }));
     const loose = data.channels.filter(ch => !ch.parent_id && ch.type !== 4 && (ch.type === 0 || ch.type === 2)).sort((a,b) => a.position-b.position);
     if (loose.length) next.unshift({ name: 'UNCATEGORIZED', channels: loose.map(ch => ({ id: ch.id, name: ch.name, type: ch.type === 2 ? 'voice' : 'text' })) });
