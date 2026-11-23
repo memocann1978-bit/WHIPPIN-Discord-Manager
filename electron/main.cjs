@@ -57,6 +57,19 @@ function registerDiscordHandlers() {
   ipcMain.handle('discord:ban-member', async (_event, { guildId, userId, reason }) => discord('/guilds/' + guildId + '/bans/' + userId, { method: 'PUT', body: JSON.stringify({ delete_message_seconds: 0 }), headers: { 'X-Audit-Log-Reason': encodeURIComponent(String(reason || 'WHIPPIN üzerinden yasaklandı').slice(0, 500)) } }));
   ipcMain.handle('discord:unban-member', async (_event, { guildId, userId }) => discord('/guilds/' + guildId + '/bans/' + userId, { method: 'DELETE' }));
   ipcMain.handle('discord:get-bans', async (_event, guildId) => discord('/guilds/' + guildId + '/bans?limit=1000'));
+  ipcMain.handle('discord:get-invites', async (_event, guildId) => discord('/guilds/' + guildId + '/invites'));
+  ipcMain.handle('discord:create-invite', async (_event, { channelId, maxAge, maxUses, temporary }) => {
+    if (typeof channelId !== 'string' || !/^\\d{17,20}$/.test(channelId)) throw new Error('Geçersiz davet kanalı.');
+    const age = Number(maxAge), uses = Number(maxUses);
+    if (!Number.isInteger(age) || age < 0 || age > 604800 || !Number.isInteger(uses) || uses < 0 || uses > 100) throw new Error('Davet süresi veya kullanım sayısı geçersiz.');
+    return discord('/channels/' + channelId + '/invites', { method: 'POST', body: JSON.stringify({ max_age: age, max_uses: uses, temporary: Boolean(temporary), unique: true }) });
+  });
+  ipcMain.handle('discord:delete-invite', async (_event, code) => {
+    if (typeof code !== 'string' || !/^[a-zA-Z0-9-]{2,32}$/.test(code)) throw new Error('Geçersiz davet kodu.');
+    return discord('/invites/' + code, { method: 'DELETE' });
+  });
+  ipcMain.handle('discord:audit-logs', async (_event, guildId) => discord('/guilds/' + guildId + '/audit-logs?limit=100'));
+
   ipcMain.handle('discord:get-messages', async (_event, { channelId, before }) => {
     if (typeof channelId !== 'string' || !/^\\d{17,20}$/.test(channelId)) throw new Error('Geçersiz kanal kimliği.');
     const query = new URLSearchParams({ limit: '100' }); if (before) query.set('before', before);
