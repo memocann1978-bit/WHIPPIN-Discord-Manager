@@ -9,6 +9,7 @@ import {
 type Page = 'Dashboard' | 'Server Structure' | 'Channels' | 'Roles' | 'Permissions' | 'Templates' | 'Bulk Actions' | 'Activity Logs' | 'Settings';
 type Channel = { id?: string; name: string; type: 'text' | 'voice'; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[] };
 type Category = { id?: string; name: string; channels: Channel[] };
+type ActivityEntry = { id: number; action: string; detail: string; time: string; };
 const permissionBits = [{key:'view',label:'View channel',bit:1024n},{key:'send',label:'Send messages',bit:2048n},{key:'manageMessages',label:'Manage messages',bit:8192n},{key:'manageChannels',label:'Manage channels',bit:16n},{key:'connect',label:'Connect to voice',bit:1048576n},{key:'speak',label:'Speak in voice',bit:2097152n}];
 const navigation: { group: string; items: { label: Page; icon: typeof LayoutDashboard }[] }[] = [
   { group: 'WORKSPACE', items: [{ label: 'Dashboard', icon: LayoutDashboard }, { label: 'Server Structure', icon: Folder }, { label: 'Channels', icon: Hash }, { label: 'Roles', icon: ShieldCheck }, { label: 'Permissions', icon: LockKeyhole }] },
@@ -44,6 +45,8 @@ function App() {
   const [bulkCategory, setBulkCategory] = useState('');
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkSuffix, setBulkSuffix] = useState('');
+  const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([]);
+  const logActivity = (action: string, detail: string) => setActivityEntries(old => [{ id: Date.now() + Math.random(), action, detail, time: new Date().toLocaleString() }, ...old].slice(0, 100));
   const totalChannels = useMemo(() => categories.reduce((n, c) => n + c.channels.length, 0), [categories]);
   const allChannels = useMemo(() => categories.flatMap(c => c.channels), [categories]);
   const selectedPermissionRoleId = roleIds[permissionRoleName];
@@ -62,6 +65,7 @@ function App() {
     setServerName(data.guild.name);
     setServerId(data.guild.id);
     setConnected(true);
+    logActivity('Server connected', `Connected to ${data.guild.name}`);
   };
   const refreshStructure = async () => { const data = await window.whippin.getStructure(serverId); applyStructure(data); };
   const connectServer = async () => {
@@ -76,7 +80,7 @@ function App() {
     if (!name) return;
     if (!connected) { notify('Connect your Discord bot first.'); return; }
     setBusy(true);
-    try { await window.whippin.createChannel({ guildId: serverId, name, type: channelType }); await refreshStructure(); setDraft(''); setModal(null); notify('Channel created on Discord.'); }
+    try { await window.whippin.createChannel({ guildId: serverId, name, type: channelType }); await refreshStructure(); setDraft(''); setModal(null); logActivity('Channel created', `Created #${name}`); notify('Channel created on Discord.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Channel could not be created.'); }
     finally { setBusy(false); }
   };
@@ -85,7 +89,7 @@ function App() {
     if (!name) return;
     if (!connected) { notify('Connect your Discord bot first.'); return; }
     setBusy(true);
-    try { await window.whippin.createChannel({ guildId: serverId, name: name.toLowerCase().replace(/\s+/g, '-') , type: 'category' }); await refreshStructure(); setDraft(''); setModal(null); notify('Category created on Discord.'); }
+    try { await window.whippin.createChannel({ guildId: serverId, name: name.toLowerCase().replace(/\s+/g, '-') , type: 'category' }); await refreshStructure(); setDraft(''); setModal(null); logActivity('Category created', `Created ${name} category`); notify('Category created on Discord.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Category could not be created.'); }
     finally { setBusy(false); }
   };
@@ -94,14 +98,14 @@ function App() {
     if (!name) return;
     if (!connected) { notify('Connect your Discord bot first.'); return; }
     setBusy(true);
-    try { await window.whippin.createRole({ guildId: serverId, name }); await refreshStructure(); setDraft(''); setModal(null); notify('Role created on Discord.'); }
+    try { await window.whippin.createRole({ guildId: serverId, name }); await refreshStructure(); setDraft(''); setModal(null); logActivity('Role created', `Created role ${name}`); notify('Role created on Discord.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Role could not be created.'); }
     finally { setBusy(false); }
   };
   const removeChannel = async (categoryName: string, channel: Channel) => {
     if (!channel.id) return;
     setBusy(true);
-    try { await window.whippin.deleteChannel(channel.id); await refreshStructure(); notify('Channel deleted from Discord.'); }
+    try { await window.whippin.deleteChannel(channel.id); await refreshStructure(); logActivity('Channel deleted', `Deleted #${channel.name}`); notify('Channel deleted from Discord.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Channel could not be deleted.'); }
     finally { setBusy(false); }
   };
@@ -109,7 +113,7 @@ function App() {
     const roleId = roleIds[name];
     if (!roleId || name === '@everyone') return;
     setBusy(true);
-    try { await window.whippin.deleteRole({ guildId: serverId, roleId }); await refreshStructure(); notify('Role deleted from Discord.'); }
+    try { await window.whippin.deleteRole({ guildId: serverId, roleId }); await refreshStructure(); logActivity('Role deleted', `Deleted role ${name}`); notify('Role deleted from Discord.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Role could not be deleted.'); }
     finally { setBusy(false); }
   };
@@ -120,7 +124,7 @@ function App() {
     setBusy(true);
     try {
       const result = action === 'delete' ? await window.whippin.bulkDeleteChannels(bulkSelected) : await window.whippin.bulkUpdateChannels({ channelIds: bulkSelected, ...(bulkCategory ? { parentId: bulkCategory } : {}), prefix: bulkPrefix, suffix: bulkSuffix });
-      await refreshStructure(); setBulkSelected(result.failed.length ? result.succeeded : []); notify(`${result.succeeded.length} successful, ${result.failed.length} failed.`);
+      await refreshStructure(); setBulkSelected(result.failed.length ? result.succeeded : []); logActivity(action === 'delete' ? 'Bulk delete' : 'Bulk update', `${result.succeeded.length} succeeded, ${result.failed.length} failed`); notify(`${result.succeeded.length} successful, ${result.failed.length} failed.`);
     } catch (error) { notify(error instanceof Error ? error.message : 'Bulk action failed.'); } finally { setBusy(false); }
   };
   const choosePermissionTarget = (channelId: string, roleName: string) => {
@@ -136,7 +140,7 @@ function App() {
     const existing = channel?.permission_overwrites?.find(o => o.id === selectedPermissionRoleId);
     const mask = permissionBits.reduce((m,p) => m | p.bit, 0n); let allow = BigInt(existing?.allow || '0') & ~mask; let deny = BigInt(existing?.deny || '0') & ~mask;
     for (const p of permissionBits) { if (permissionValues[p.key]) allow |= p.bit; else deny |= p.bit; }
-    setBusy(true); try { await window.whippin.setChannelPermissions({channelId:permissionChannelId,roleId:selectedPermissionRoleId,allow:allow.toString(),deny:deny.toString()}); await refreshStructure(); notify('Channel permissions saved to Discord.'); }
+    setBusy(true); try { await window.whippin.setChannelPermissions({channelId:permissionChannelId,roleId:selectedPermissionRoleId,allow:allow.toString(),deny:deny.toString()}); await refreshStructure(); logActivity('Permissions updated', `Updated ${permissionRoleName} overrides on #${channel?.name || permissionChannelId}`); notify('Channel permissions saved to Discord.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Permissions could not be saved.'); } finally { setBusy(false); }
   };
   const visibleCategories = categories.map(c => ({ ...c, channels: c.channels.filter(ch => ch.name.toLowerCase().includes(query.toLowerCase())) })).filter(c => c.name.toLowerCase().includes(query.toLowerCase()) || c.channels.length);
@@ -180,6 +184,11 @@ function App() {
             <div style={{display:'flex',justifyContent:'flex-end',marginTop:20}}><button className="primary-button" disabled={busy||!permissionChannelId||!selectedPermissionRoleId} onClick={savePermissions}>{busy?'Saving…':'Save permission overrides'} <ShieldCheck size={16}/></button></div>
           </>}
         </section>}
+        {page === 'Activity Logs' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>WORKSPACE ACTIVITY</h3><p>Recent actions performed from this WHIPPIN session</p></div><div className="inline-actions"><span className="coming-badge">{activityEntries.length} EVENTS</span><button className="outline-button" disabled={!activityEntries.length} onClick={()=>setActivityEntries([])}>Clear history</button></div></div>
+          {!activityEntries.length ? <div className="empty-state compact"><ClipboardList size={27}/><b>No activity yet</b><span>Successful server changes will appear here with their action and time.</span></div> : <div className="role-list">{activityEntries.map(entry=><div className="role-row" key={entry.id}><div className="role-color" style={{background:'#a879f5'}}/><div style={{flex:1,minWidth:0}}><b>{entry.action}</b><small style={{display:'block',fontSize:10,color:'#92899d',marginTop:4}}>{entry.detail}</small></div><time style={{fontSize:9,color:'#92899d',whiteSpace:'nowrap'}}>{entry.time}</time></div>)}</div>}
+          <div className="notice"><Clock3 size={16}/><span>Activity history is currently kept for this app session and is cleared when the application is restarted.</span></div>
+        </section>}
         {page === 'Bulk Actions' && <section className="panel manager-panel">
           <div className="panel-heading"><div><h3>BULK CHANNEL OPERATIONS</h3><p>Select channels and apply changes across your server</p></div><span className="coming-badge">{bulkSelected.length} SELECTED</span></div>
           {!connected ? <div className="empty-state compact"><Zap size={25}/><b>Connect a Discord server</b><span>Bulk operations run against your live server through your official bot.</span><button className="outline-button" onClick={() => openModal('server')}>Connect Discord</button></div> : <>
@@ -194,7 +203,7 @@ function App() {
             <div className="inline-actions" style={{justifyContent:'flex-end',marginTop:16}}><button className="outline-button" disabled={busy||!bulkSelected.length} onClick={()=>runBulkAction('delete')} style={{color:'#ff9b9b',borderColor:'#704044'}}>Delete selected</button><button className="primary-button" disabled={busy||!bulkSelected.length||(!bulkCategory&&!bulkPrefix&&!bulkSuffix)} onClick={()=>runBulkAction('update')}>{busy?'Applying…':'Apply move / rename'} <Zap size={15}/></button></div>
           </>}
         </section>}
-        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Bulk Actions' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
+        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Bulk Actions' && page !== 'Activity Logs' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
         <footer className="app-footer"><span>WHIPPIN <b>v0.1.0</b></span><span>BUILT FOR SERVER OWNERS <i/> SECURE BY DESIGN</span></footer>
       </div>
     </main>
