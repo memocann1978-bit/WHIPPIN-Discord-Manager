@@ -69,17 +69,19 @@ function App() {
   const [updateVersion, setUpdateVersion] = useState('');
   const [updatePercent, setUpdatePercent] = useState(0);
   const [updateMessage, setUpdateMessage] = useState('');
+  const [lastUpdateCheck, setLastUpdateCheck] = useState('Not checked yet');
   useEffect(() => {
     window.whippin.getAppVersion().then(setAppVersion).catch(() => setAppVersion('unknown'));
     return window.whippin.onUpdateStatus(event => {
       setUpdateStatus(event.status);
+      if (event.status === 'checking') setLastUpdateCheck(new Date().toLocaleString());
       if (event.version) setUpdateVersion(event.version);
       if (typeof event.percent === 'number') setUpdatePercent(event.percent);
       if (event.message) setUpdateMessage(event.message);
     });
   }, []);
   const checkUpdates = async () => {
-    setUpdateStatus('checking'); setUpdateMessage('');
+    setUpdateStatus('checking'); setUpdateMessage(''); setLastUpdateCheck(new Date().toLocaleString());
     try { const result = await window.whippin.checkForUpdates(); if (result.status === 'development') setUpdateStatus('development'); if (result.version) setUpdateVersion(result.version); }
     catch (error) { setUpdateStatus('error'); setUpdateMessage(error instanceof Error ? error.message : 'Update check failed.'); }
   };
@@ -268,9 +270,9 @@ function App() {
           <div className="panel-heading"><div><h3>APPLICATION SETTINGS</h3><p>Manage WHIPPIN updates and application information</p></div><span className="coming-badge">VERSION {appVersion}</span></div>
           <div className="manager-category" style={{padding:18}}>
             <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}><div className="stat-icon" style={{width:42,height:42}}><Zap size={20}/></div><div><b style={{fontSize:13}}>WHIPPIN Auto Update</b><div style={{fontSize:10,color:'#91889d',marginTop:4}}>Check GitHub for the latest official version and install it without downloading an installer manually.</div></div></div>
-            <div className="detail-line"><span>Installed version</span><b>v{appVersion}</b></div><div className="detail-line"><span>Latest version</span><b>{updateVersion ? `v${updateVersion}` : 'Not checked yet'}</b></div>
+            <div className="detail-line"><span>Installed version</span><b>v{appVersion}</b></div><div className="detail-line"><span>Latest version</span><b>{updateVersion ? `v${updateVersion}` : 'Not checked yet'}</b></div><div className="detail-line"><span>Last check</span><b>{lastUpdateCheck}</b></div>
             {updateStatus === 'downloading' && <div style={{marginTop:16}}><div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#cbb6e6',marginBottom:7}}><span>Downloading update…</span><b>{updatePercent}%</b></div><div style={{height:7,background:'#292231',borderRadius:8,overflow:'hidden'}}><div style={{height:'100%',width:`${updatePercent}%`,background:'linear-gradient(90deg,#8050bd,#c49aff)',transition:'width .2s'}}/></div></div>}
-            <div className="notice" style={{marginTop:16}}><Shield size={16}/><span>{updateStatus === 'checking' ? 'Checking GitHub Releases…' : updateStatus === 'available' ? `Version ${updateVersion} found. It is downloading automatically.` : updateStatus === 'downloading' ? 'The update is downloading in the background. You can keep using WHIPPIN.' : updateStatus === 'downloaded' ? `Version ${updateVersion} is ready. Restart WHIPPIN to install it.` : updateStatus === 'not-available' ? 'You are using the latest version of WHIPPIN.' : updateStatus === 'development' ? 'Update checks are available in the installed Windows version.' : updateStatus === 'error' ? `Update error: ${updateMessage}` : 'Updates are delivered through official WHIPPIN GitHub Releases.'}</span></div>
+            <div className="notice" style={{marginTop:16}}><Shield size={16}/><span>{updateStatus === 'checking' ? 'Checking GitHub Releases…' : updateStatus === 'available' ? `Version ${updateVersion} found. It is downloading automatically.` : updateStatus === 'downloading' ? 'The update is downloading in the background. You can keep using WHIPPIN.' : updateStatus === 'downloaded' ? `Version ${updateVersion} is ready. Restart WHIPPIN to install it.` : updateStatus === 'not-available' ? 'You are using the latest version of WHIPPIN.' : updateStatus === 'development' ? 'Update checks are available in the installed Windows version.' : updateStatus === 'error' ? `Update error: ${updateMessage}` : 'Automatic checks run when WHIPPIN starts and every 6 hours. Updates come from official WHIPPIN GitHub Releases.'}</span></div>
             <div className="inline-actions" style={{justifyContent:'flex-end',marginTop:16}}><button className="outline-button" disabled={updateStatus === 'checking' || updateStatus === 'downloading'} onClick={checkUpdates}><Activity size={14}/> Check for updates</button>{updateStatus === 'downloaded' && <button className="primary-button" onClick={() => window.whippin.installUpdate()}>Restart & install <ChevronRight size={15}/></button>}</div>
           </div><div className="notice"><LockKeyhole size={16}/><span>Only updates published by the official WHIPPIN repository are checked. Your Discord bot token remains stored locally in Windows secure storage.</span></div>
         </section>}
@@ -289,7 +291,7 @@ function App() {
           </>}
         </section>}
         {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Bulk Actions' && page !== 'Activity Logs' && page !== 'Templates' && page !== 'Settings' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
-        <footer className="app-footer"><span>WHIPPIN <b>v0.1.0</b></span><span>BUILT FOR SERVER OWNERS <i/> SECURE BY DESIGN</span></footer>
+        <footer className="app-footer"><span>WHIPPIN <b>v{appVersion}</b></span><span>BUILT FOR SERVER OWNERS <i/> SECURE BY DESIGN</span></footer>
       </div>
     </main>
     {rightOpen && <aside className="right-panel"><div className="right-header"><div><span className="eyebrow">LIVE WORKSPACE</span><h3>SERVER DETAILS</h3></div><button className="icon-button" onClick={() => setRightOpen(false)}><X size={16}/></button></div><div className="right-server-card"><div className="right-server-icon"><Server size={23}/></div><b>{connected ? serverName : 'No server selected'}</b><small>{connected ? serverId : 'Connect a server to begin'}</small><span className={connected ? 'connection-label online-label' : 'connection-label'}><i/> {connected ? 'BOT READY' : 'DISCONNECTED'}</span></div><div className="right-section-title">CONNECTION</div><div className="detail-line"><span>Bot status</span><b className={connected ? 'success-text' : ''}>{connected ? 'Connected' : 'Offline'}</b></div><div className="detail-line"><span>Gateway</span><b>Discord API</b></div><div className="detail-line"><span>Last sync</span><b>{connected ? 'Live sync' : '—'}</b></div><div className="right-section-title">QUICK STATS</div><div className="right-stat"><span><Hash size={14}/> Channels</span><b>{connected ? totalChannels : '—'}</b></div><div className="right-stat"><span><Folder size={14}/> Categories</span><b>{connected ? categories.length : '—'}</b></div><div className="right-stat"><span><Shield size={14}/> Roles</span><b>{connected ? roles.length : '—'}</b></div><div className="right-bottom"><div className="secure-note"><LockKeyhole size={15}/><span><b>Secure workspace</b><small>Official Discord bot integration. No user-token login.</small></span></div><button className="right-connect" onClick={() => openModal('server')}>{connected ? 'Switch server' : 'Connect Discord'} <ChevronRight size={15}/></button></div></aside>}
