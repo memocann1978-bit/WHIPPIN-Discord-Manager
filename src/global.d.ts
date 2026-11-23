@@ -12,6 +12,10 @@ declare global {
       createRole(payload: { guildId: string; name: string; color?: number }): Promise<DiscordRole>;
       deleteRole(payload: { guildId: string; roleId: string }): Promise<null>;
       disconnect(): Promise<boolean>;
+      getAppVersion(): Promise<string>;
+      checkForUpdates(): Promise<{ status: string; version?: string }>;
+      installUpdate(): Promise<boolean>;
+      onUpdateStatus(callback: (payload: { status: string; version?: string; percent?: number; message?: string }) => void): () => void;
     };
   }
   interface DiscordChannel { id: string; name: string; type: number; parent_id: string | null; position: number; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[]; }
