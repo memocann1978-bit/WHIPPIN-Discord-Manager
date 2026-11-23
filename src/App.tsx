@@ -65,13 +65,12 @@ function App() {
     setServerName(data.guild.name);
     setServerId(data.guild.id);
     setConnected(true);
-    logActivity('Server connected', `Connected to ${data.guild.name}`);
   };
   const refreshStructure = async () => { const data = await window.whippin.getStructure(serverId); applyStructure(data); };
   const connectServer = async () => {
     if (!serverId.trim() || !botToken.trim()) { notify('Enter both the bot token and server ID.'); return; }
     setBusy(true);
-    try { const data = await window.whippin.connect({ token: botToken.trim(), guildId: serverId.trim() }); applyStructure(data); setBotToken(''); setModal(null); notify('Discord server connected successfully.'); }
+    try { const data = await window.whippin.connect({ token: botToken.trim(), guildId: serverId.trim() }); applyStructure(data); logActivity('Server connected', `Connected to ${data.guild.name}`); setBotToken(''); setModal(null); notify('Discord server connected successfully.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Could not connect to Discord.'); }
     finally { setBusy(false); }
   };
