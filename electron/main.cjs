@@ -45,22 +45,22 @@ function registerDiscordHandlers() {
   });
   ipcMain.handle('discord:delete-channel', async (_event, channelId) => discord('/channels/' + channelId, { method: 'DELETE' }));
   ipcMain.handle('discord:bulk-delete-channels', async (_event, channelIds) => {
-    if (!Array.isArray(channelIds) || channelIds.length < 1 || channelIds.length > 50 || !channelIds.every(id => typeof id === 'string' && /^\\d{17,20}$/.test(id))) throw new Error('Select between 1 and 50 valid channels.');
+    if (!Array.isArray(channelIds) || channelIds.length < 1 || channelIds.length > 50 || !channelIds.every(id => typeof id === 'string' && /^\d{17,20}$/.test(id))) throw new Error('Select between 1 and 50 valid channels.');
     const results = { succeeded: [], failed: [] };
     for (const id of channelIds) { try { await discord('/channels/' + id, { method: 'DELETE' }); results.succeeded.push(id); } catch (error) { results.failed.push({ id, message: error.message }); } }
     return results;
   });
   ipcMain.handle('discord:bulk-update-channels', async (_event, { channelIds, parentId, prefix, suffix }) => {
-    if (!Array.isArray(channelIds) || channelIds.length < 1 || channelIds.length > 50 || !channelIds.every(id => typeof id === 'string' && /^\\d{17,20}$/.test(id))) throw new Error('Select between 1 and 50 valid channels.');
-    if (parentId !== undefined && parentId !== null && parentId !== 'none' && (typeof parentId !== 'string' || !/^\\d{17,20}$/.test(parentId))) throw new Error('Invalid category ID.');
+    if (!Array.isArray(channelIds) || channelIds.length < 1 || channelIds.length > 50 || !channelIds.every(id => typeof id === 'string' && /^\d{17,20}$/.test(id))) throw new Error('Select between 1 and 50 valid channels.');
+    if (parentId !== undefined && parentId !== null && parentId !== 'none' && (typeof parentId !== 'string' || !/^\d{17,20}$/.test(parentId))) throw new Error('Invalid category ID.');
     if (typeof prefix !== 'string' || typeof suffix !== 'string' || prefix.length > 30 || suffix.length > 30) throw new Error('Invalid rename prefix or suffix.');
     const results = { succeeded: [], failed: [] };
     for (const id of channelIds) { try { const channel = await discord('/channels/' + id); const payload = {}; if (parentId !== undefined) payload.parent_id = parentId === 'none' ? null : parentId; if (prefix || suffix) payload.name = (prefix + channel.name + suffix).slice(0, 100); await discord('/channels/' + id, { method: 'PATCH', body: JSON.stringify(payload) }); results.succeeded.push(id); } catch (error) { results.failed.push({ id, message: error.message }); } }
     return results;
   });
   ipcMain.handle('discord:set-channel-permissions', async (_event, { channelId, roleId, allow, deny }) => {
-    if (![channelId, roleId].every(value => typeof value === 'string' && /^\\d{17,20}$/.test(value))) throw new Error('Invalid channel or role ID.');
-    if (![allow, deny].every(value => typeof value === 'string' && /^\\d+$/.test(value))) throw new Error('Invalid permission bitfield.');
+    if (![channelId, roleId].every(value => typeof value === 'string' && /^\d{17,20}$/.test(value))) throw new Error('Invalid channel or role ID.');
+    if (![allow, deny].every(value => typeof value === 'string' && /^\d+$/.test(value))) throw new Error('Invalid permission bitfield.');
     return discord('/channels/' + channelId + '/permissions/' + roleId, {
       method: 'PUT', body: JSON.stringify({ type: 0, allow, deny })
     });
