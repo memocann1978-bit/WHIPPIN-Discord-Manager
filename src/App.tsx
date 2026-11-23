@@ -7,9 +7,9 @@ import {
 } from 'lucide-react';
 
 type Page = 'Dashboard' | 'Server Structure' | 'Channels' | 'Roles' | 'Permissions' | 'Templates' | 'Bulk Actions' | 'Activity Logs' | 'Settings';
-const pageLabels: Record<Page, string> = { Dashboard: 'Genel Bakış', 'Server Structure': 'Sunucu Yapısı', Channels: 'Kanallar', Roles: 'Roles', Permissions: 'İzinler', Templates: 'Şablonlar', 'Bulk Actions': 'Toplu İşlemler', 'Activity Logs': 'İşlem Geçmişi', Settings: 'Ayarlar' };
+const pageLabels: Record<Page, string> = { Dashboard: 'Genel Bakış', 'Server Structure': 'Sunucu Yapısı', Channels: 'Kanallar', Roles: 'Roller', Permissions: 'İzinler', Templates: 'Şablonlar', 'Bulk Actions': 'Toplu İşlemler', 'Activity Logs': 'İşlem Geçmişi', Settings: 'Ayarlar' };
 type Channel = { id?: string; name: string; type: 'text' | 'voice'; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[] };
-type Category = { id?: string; name: string; channels: Channel[] };
+type Category = { id?: string; name: string; channels: Channel[]; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[] };
 type ActivityEntry = { id: number; action: string; detail: string; time: string; };
 type ServerTemplate = { id: string; name: string; description: string; categories: { name: string; channels: { name: string; type: 'text' | 'voice' }[] }[] };
 const serverTemplates: ServerTemplate[] = [
@@ -29,7 +29,23 @@ const serverTemplates: ServerTemplate[] = [
     { name: 'HANGOUT', channels: [{name:'general',type:'text'},{name:'voice-lounge',type:'voice'}] }
   ]}
 ];
-const permissionBits = [{key:'view',label:'Channelı görüntüle',bit:1024n},{key:'send',label:'Mesaj gönder',bit:2048n},{key:'manageMessages',label:'Mesajları yönet',bit:8192n},{key:'manageChannels',label:'Kanalları yönet',bit:16n},{key:'connect',label:'Ses kanalına bağlan',bit:1048576n},{key:'speak',label:'Sesli konuş',bit:2097152n}];
+const permissionBits = [
+  {key:'view',label:'Kanalları görüntüle',bit:1024n},{key:'send',label:'Mesaj gönder',bit:2048n},{key:'manageMessages',label:'Mesajları yönet',bit:8192n},
+  {key:'manageChannels',label:'Kanalları yönet',bit:16n},{key:'manageWebhooks',label:'Webhook yönet',bit:536870912n},{key:'createInvite',label:'Davet oluştur',bit:1n},
+  {key:'embed',label:'Bağlantı önizlemeleri',bit:16384n},{key:'attach',label:'Dosya ekle',bit:32768n},{key:'history',label:'Mesaj geçmişini oku',bit:65536n},
+  {key:'mention',label:'Herkesten bahset',bit:131072n},{key:'addReactions',label:'Tepki ekle',bit:64n},{key:'externalEmoji',label:'Harici emoji kullan',bit:262144n},
+  {key:'connect',label:'Ses kanalına bağlan',bit:1048576n},{key:'speak',label:'Konuş',bit:2097152n},{key:'video',label:'Video kullan',bit:512n},
+  {key:'mute',label:'Üyeleri sustur',bit:4194304n},{key:'deafen',label:'Üyeleri sağırlaştır',bit:8388608n},{key:'move',label:'Üyeleri taşı',bit:16777216n},{key:'priority',label:'Öncelikli konuşmacı',bit:256n}
+];
+const rolePermissionBits = [
+  {key:'administrator',label:'Yönetici',bit:8n},{key:'manageGuild',label:'Sunucuyu yönet',bit:32n},{key:'manageRoles',label:'Rolleri yönet',bit:268435456n},
+  {key:'manageChannels',label:'Kanalları yönet',bit:16n},{key:'view',label:'Kanalları görüntüle',bit:1024n},{key:'send',label:'Mesaj gönder',bit:2048n},
+  {key:'manageMessages',label:'Mesajları yönet',bit:8192n},{key:'manageWebhooks',label:'Webhook yönet',bit:536870912n},{key:'kick',label:'Üyeleri at',bit:2n},
+  {key:'ban',label:'Üyeleri yasakla',bit:4n},{key:'moderate',label:'Üyelere zaman aşımı uygula',bit:1099511627776n},{key:'manageNicknames',label:'Takma adları yönet',bit:134217728n},
+  {key:'createInvite',label:'Davet oluştur',bit:1n},{key:'manageEvents',label:'Etkinlikleri yönet',bit:8589934592n},{key:'manageExpressions',label:'Emoji ve çıkartmaları yönet',bit:1073741824n},
+  {key:'connect',label:'Ses kanalına bağlan',bit:1048576n},{key:'speak',label:'Konuş',bit:2097152n},{key:'mute',label:'Üyeleri sustur',bit:4194304n},
+  {key:'deafen',label:'Üyeleri sağırlaştır',bit:8388608n},{key:'move',label:'Üyeleri taşı',bit:16777216n}
+];
 const navigation: { group: string; items: { label: Page; icon: typeof LayoutDashboard }[] }[] = [
   { group: 'ÇALIŞMA ALANI', items: [{ label: 'Dashboard', icon: LayoutDashboard }, { label: 'Server Structure', icon: Folder }, { label: 'Channels', icon: Hash }, { label: 'Roles', icon: ShieldCheck }, { label: 'Permissions', icon: LockKeyhole }] },
   { group: 'YÖNETİM', items: [{ label: 'Templates', icon: Blocks }, { label: 'Bulk Actions', icon: Zap }, { label: 'Activity Logs', icon: ClipboardList }] },
@@ -52,13 +68,16 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [roles, setRoles] = useState(['Owner', 'Administrator', 'Moderator', 'Member', '@everyone']);
+  const [roleData, setRoleData] = useState<DiscordRole[]>([]);
+  const [rolePermissionRoleName, setRolePermissionRoleName] = useState('');
+  const [rolePermissionValues, setRolePermissionValues] = useState<Record<string, boolean>>({});
   const [roleIds, setRoleIds] = useState<Record<string,string>>({});
   const [modal, setModal] = useState<'server' | 'channel' | 'category' | 'role' | null>(null);
   const [draft, setDraft] = useState('');
   const [channelType, setChannelType] = useState<'text' | 'voice'>('text');
   const [permissionChannelId, setPermissionChannelId] = useState('');
   const [permissionRoleName, setPermissionRoleName] = useState('');
-  const [permissionValues, setPermissionValues] = useState<Record<string, boolean>>({});
+  const [permissionValues, setPermissionValues] = useState<Record<string, 'allow' | 'deny' | 'inherit'>>({});
   const [toast, setToast] = useState('');
   const [bulkSelected, setBulkSelected] = useState<string[]>([]);
   const [bulkCategory, setBulkCategory] = useState('');
@@ -94,12 +113,13 @@ function App() {
   const applyStructure = (data: Awaited<ReturnType<typeof window.whippin.getStructure>>) => {
     const categoryChannels = data.channels.filter(ch => ch.type === 4).sort((a,b) => a.position-b.position);
     const next: Category[] = categoryChannels.map(cat => ({
-      id: cat.id, name: cat.name.toUpperCase(),
+      id: cat.id, name: cat.name, permission_overwrites: cat.permission_overwrites,
       channels: data.channels.filter(ch => ch.parent_id === cat.id && (ch.type === 0 || ch.type === 2)).sort((a,b) => a.position-b.position).map(ch => ({ id: ch.id, name: ch.name, type: ch.type === 2 ? 'voice' : 'text', permission_overwrites: ch.permission_overwrites }))
     }));
     const loose = data.channels.filter(ch => !ch.parent_id && ch.type !== 4 && (ch.type === 0 || ch.type === 2)).sort((a,b) => a.position-b.position);
     if (loose.length) next.unshift({ name: 'KATEGORİSİZ', channels: loose.map(ch => ({ id: ch.id, name: ch.name, type: ch.type === 2 ? 'voice' : 'text', permission_overwrites: ch.permission_overwrites })) });
     setCategories(next);
+    setRoleData(data.roles.slice().sort((a,b) => b.position-a.position));
     setRoles(data.roles.slice().sort((a,b) => b.position-a.position).map(r => r.name));
     setRoleIds(Object.fromEntries(data.roles.map(r => [r.name,r.id])));
     setServerName(data.guild.name);
@@ -191,21 +211,108 @@ function App() {
       await refreshStructure(); setBulkSelected(result.failed.length ? result.succeeded : []); logActivity(action === 'delete' ? 'Bulk delete' : 'Bulk update', `${result.succeeded.length} succeeded, ${result.failed.length} failed`); notify(`${result.succeeded.length} successful, ${result.failed.length} failed.`);
     } catch (error) { notify(error instanceof Error ? error.message : 'Bulk action failed.'); } finally { setBusy(false); }
   };
+  const getPermissionTarget = (id: string) => [...categories, ...allChannels].find(item => item.id === id);
   const choosePermissionTarget = (channelId: string, roleName: string) => {
     setPermissionChannelId(channelId); setPermissionRoleName(roleName);
-    const channel = allChannels.find(ch => ch.id === channelId) as (Channel & { permission_overwrites?: { id: string; allow: string; deny: string }[] }) | undefined;
-    const roleId = roleIds[roleName]; const overwrite = channel?.permission_overwrites?.find(o => o.id === roleId);
+    const target = getPermissionTarget(channelId);
+    const overwrite = target?.permission_overwrites?.find(o => o.id === roleIds[roleName]);
     const allow = BigInt(overwrite?.allow || '0'); const deny = BigInt(overwrite?.deny || '0');
-    setPermissionValues(Object.fromEntries(permissionBits.map(p => [p.key, (allow & p.bit) !== 0n && (deny & p.bit) === 0n])));
+    setPermissionValues(Object.fromEntries(permissionBits.map(p => [p.key, (allow & p.bit) !== 0n ? 'allow' : (deny & p.bit) !== 0n ? 'deny' : 'inherit'])));
   };
   const savePermissions = async () => {
-    if (!permissionChannelId || !selectedPermissionRoleId) return notify('Önce bir kanal ve rol seçin.');
-    const channel = allChannels.find(ch => ch.id === permissionChannelId) as (Channel & { permission_overwrites?: { id: string; allow: string; deny: string }[] }) | undefined;
-    const existing = channel?.permission_overwrites?.find(o => o.id === selectedPermissionRoleId);
-    const mask = permissionBits.reduce((m,p) => m | p.bit, 0n); let allow = BigInt(existing?.allow || '0') & ~mask; let deny = BigInt(existing?.deny || '0') & ~mask;
-    for (const p of permissionBits) { if (permissionValues[p.key]) allow |= p.bit; else deny |= p.bit; }
-    setBusy(true); try { await window.whippin.setChannelPermissions({channelId:permissionChannelId,roleId:selectedPermissionRoleId,allow:allow.toString(),deny:deny.toString()}); await refreshStructure(); logActivity('Permissions updated', `Updated ${permissionRoleName} overrides on #${channel?.name || permissionChannelId}`); notify('Channel izinleri Discord üzerine kaydedildi.'); }
-    catch (error) { notify(error instanceof Error ? error.message : 'Permissions could not be saved.'); } finally { setBusy(false); }
+    if (!permissionChannelId || !selectedPermissionRoleId) return notify('Önce kategori/kanal ve rol seçin.');
+    const target = getPermissionTarget(permissionChannelId);
+    const existing = target?.permission_overwrites?.find(o => o.id === selectedPermissionRoleId);
+    const mask = permissionBits.reduce((m,p) => m | p.bit, 0n);
+    let allow = BigInt(existing?.allow || '0') & ~mask; let deny = BigInt(existing?.deny || '0') & ~mask;
+    for (const p of permissionBits) { if (permissionValues[p.key] === 'allow') allow |= p.bit; if (permissionValues[p.key] === 'deny') deny |= p.bit; }
+    setBusy(true);
+    try { await window.whippin.setChannelPermissions({channelId:permissionChannelId,roleId:selectedPermissionRoleId,allow:allow.toString(),deny:deny.toString()}); await refreshStructure(); logActivity('İzinler güncellendi', permissionRoleName + ' → ' + (target?.name || permissionChannelId)); notify('İzinler Discord üzerine kaydedildi.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'İzinler kaydedilemedi.'); } finally { setBusy(false); }
+  };
+  const chooseRolePermissionTarget = (roleName: string) => {
+    setRolePermissionRoleName(roleName);
+    const role = roleData.find(item => item.name === roleName);
+    const bits = BigInt(role?.permissions || '0');
+    setRolePermissionValues(Object.fromEntries(rolePermissionBits.map(p => [p.key, (bits & p.bit) !== 0n])));
+  };
+  const saveRolePermissions = async () => {
+    const role = roleData.find(item => item.name === rolePermissionRoleName);
+    if (!role) return notify('Düzenlenecek rolü seçin.');
+    const mask = rolePermissionBits.reduce((m,p) => m | p.bit, 0n);
+    let permissions = BigInt(role.permissions || '0') & ~mask;
+    for (const p of rolePermissionBits) if (rolePermissionValues[p.key]) permissions |= p.bit;
+    setBusy(true);
+    try { await window.whippin.setRolePermissions({guildId:serverId,roleId:role.id,permissions:permissions.toString()}); await refreshStructure(); chooseRolePermissionTarget(rolePermissionRoleName); logActivity('Rol izinleri güncellendi', rolePermissionRoleName); notify('Rol izinleri kaydedildi.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Rol izinleri kaydedilemedi.'); } finally { setBusy(false); }
+  };
+  const buildPositionPayload = (items: Category[]) => {
+    const positions: { id: string; position: number; parent_id?: string | null }[] = [];
+    let position = 0;
+    for (const category of items) {
+      if (category.id && category.name !== 'KATEGORİSİZ') positions.push({id:category.id,position:position++});
+      for (const channel of category.channels) if (channel.id) positions.push({id:channel.id,position:position++,parent_id:category.id || null});
+    }
+    return positions;
+  };
+  const saveCategoryOrder = async (items: Category[], action: string) => {
+    const positions = buildPositionPayload(items);
+    if (!positions.length) return;
+    setBusy(true);
+    try { await window.whippin.reorderChannels({guildId:serverId,positions}); await refreshStructure(); logActivity('Sunucu sıralaması değişti',action); notify('Yeni sıralama Discord üzerine kaydedildi.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Sıralama kaydedilemedi.'); } finally { setBusy(false); }
+  };
+  const editCategory = async (category: Category) => {
+    if (!category.id) return;
+    const name = window.prompt('Yeni kategori adı:',category.name);
+    if (!name?.trim() || name.trim() === category.name) return;
+    setBusy(true);
+    try { await window.whippin.updateChannel({channelId:category.id,name:name.trim()}); await refreshStructure(); logActivity('Kategori düzenlendi',name.trim()); notify('Kategori adı güncellendi.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Kategori düzenlenemedi.'); } finally { setBusy(false); }
+  };
+  const deleteCategory = async (category: Category) => {
+    if (!category.id) return;
+    if (!window.confirm('Bu kategoriyi silmek istiyor musunuz? İçindeki kanallar silinmez, kategorisiz kalır.')) return;
+    setBusy(true);
+    try { await window.whippin.deleteChannel(category.id); await refreshStructure(); logActivity('Kategori silindi',category.name); notify('Kategori silindi; kanallar korundu.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Kategori silinemedi.'); } finally { setBusy(false); }
+  };
+  const editChannel = async (channel: Channel) => {
+    if (!channel.id) return;
+    const name = window.prompt('Yeni kanal adı:',channel.name);
+    if (!name?.trim() || name.trim() === channel.name) return;
+    setBusy(true);
+    try { await window.whippin.updateChannel({channelId:channel.id,name:name.trim()}); await refreshStructure(); logActivity('Kanal yeniden adlandırıldı',name.trim()); notify('Kanal adı güncellendi.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Kanal düzenlenemedi.'); } finally { setBusy(false); }
+  };
+  const moveChannel = async (channel: Channel, parentId: string) => {
+    if (!channel.id) return;
+    setBusy(true);
+    try { await window.whippin.updateChannel({channelId:channel.id,parentId:parentId === 'none' ? null : parentId}); await refreshStructure(); logActivity('Kanal taşındı',channel.name); notify('Kanal yeni kategoriye taşındı.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Kanal taşınamadı.'); } finally { setBusy(false); }
+  };
+  const moveCategory = async (category: Category, delta: number) => {
+    const list = categories.filter(c => c.id);
+    const index = list.findIndex(c => c.id === category.id); const nextIndex = index + delta;
+    if (index < 0 || nextIndex < 0 || nextIndex >= list.length) return;
+    [list[index],list[nextIndex]] = [list[nextIndex],list[index]];
+    const loose = categories.find(c => !c.id);
+    await saveCategoryOrder(loose ? [loose,...list] : list,'Kategori sırası');
+  };
+  const moveChannelOrder = async (category: Category, channel: Channel, delta: number) => {
+    const items = categories.map(c => ({...c,channels:[...c.channels]}));
+    const group = items.find(c => c.id === category.id || (!c.id && c.name === category.name));
+    if (!group) return;
+    const index = group.channels.findIndex(ch => ch.id === channel.id); const nextIndex = index + delta;
+    if (index < 0 || nextIndex < 0 || nextIndex >= group.channels.length) return;
+    [group.channels[index],group.channels[nextIndex]] = [group.channels[nextIndex],group.channels[index]];
+    await saveCategoryOrder(items,'Kanal sırası');
+  };
+  const syncCategoryPermissions = async (category: Category) => {
+    if (!category.id || !window.confirm('Bu kategorinin izinlerini içindeki tüm kanallara uygulamak istiyor musunuz? Kanalların mevcut izinleri kategori izinleriyle eşitlenir.')) return;
+    setBusy(true);
+    try { const result = await window.whippin.syncCategoryPermissions(category.id); await refreshStructure(); notify(result.synced + ' kanal eşitlendi, ' + result.failed.length + ' hata.'); logActivity('Kategori izinleri eşitlendi',category.name); }
+    catch (error) { notify(error instanceof Error ? error.message : 'İzinler eşitlenemedi.'); } finally { setBusy(false); }
   };
   const visibleCategories = categories.map(c => ({ ...c, channels: c.channels.filter(ch => ch.name.toLowerCase().includes(query.toLowerCase())) })).filter(c => c.name.toLowerCase().includes(query.toLowerCase()) || c.channels.length);
   const openModal = (kind: typeof modal) => { setDraft(''); setModal(kind); };
