@@ -222,7 +222,7 @@ function App() {
   const editMemberRoles = async (member: DiscordMember) => {
     const available = roleData.filter(role => role.name !== '@everyone');
     const current = available.filter(role => member.roles.includes(role.id)).map(role => role.name).join(', ');
-    const entered = window.prompt('Üyenin rollerini virgülle ayırarak yazın. Boş bırakmak tüm rolleri kaldırır.\\n\\nMevcut roller: ' + (current || 'Yok') + '\\n\\nKullanılabilir roller: ' + available.map(role => role.name).join(', '), current);
+    const entered = window.prompt('Üyenin rollerini virgülle ayırarak yazın. Boş bırakmak tüm rolleri kaldırır.\n\nMevcut roller: ' + (current || 'Yok') + '\n\nKullanılabilir roller: ' + available.map(role => role.name).join(', '), current);
     if (entered === null) return;
     const names = entered.split(',').map(name => name.trim().toLocaleLowerCase('tr')).filter(Boolean);
     const matched = available.filter(role => names.includes(role.name.toLocaleLowerCase('tr')));
