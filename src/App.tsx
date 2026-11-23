@@ -251,7 +251,10 @@ function App() {
         if (!window.confirm(name + ' üyesine 10 dakika zaman aşımı uygulansın mı?')) return;
         await window.whippin.updateMember({ guildId: serverId, userId: id, timeoutUntil: new Date(Date.now()+10*60*1000).toISOString() });
         logActivity('Üyeye zaman aşımı', name + ' · 10 dakika'); notify('Zaman aşımı uygulandı.');
-      } else if (action === 'untimeout') {\n        await window.whippin.updateMember({ guildId: serverId, userId: id, timeoutUntil: null });\n        logActivity('Üye zaman aşımı kaldırıldı', name); notify('Üyenin zaman aşımı kaldırıldı.');\n      } else if (action === 'kick') {
+      } else if (action === 'untimeout') {
+        await window.whippin.updateMember({ guildId: serverId, userId: id, timeoutUntil: null });
+        logActivity('Üye zaman aşımı kaldırıldı', name); notify('Üyenin zaman aşımı kaldırıldı.');
+      } else if (action === 'kick') {
         if (!window.confirm(name + ' sunucudan atılsın mı?')) return;
         await window.whippin.kickMember({ guildId: serverId, userId: id });
         logActivity('Üye sunucudan atıldı', name); notify('Üye sunucudan atıldı.');
