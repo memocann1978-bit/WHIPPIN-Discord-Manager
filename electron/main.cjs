@@ -44,6 +44,22 @@ function registerDiscordHandlers() {
     if (parentId) payload.parent_id = parentId;
     return discord('/guilds/' + guildId + '/channels', { method: 'POST', body: JSON.stringify(payload) });
   });
+  ipcMain.handle('discord:update-channel', async (_event, { channelId, name, parentId }) => {
+    if (typeof channelId !== 'string' || !/^\\d{17,20}$/.test(channelId)) throw new Error('Geçersiz kanal kimliği.');
+    const payload = {};
+    if (typeof name === 'string') { if (!name.trim() || name.length > 100) throw new Error('Kanal adı 1-100 karakter olmalıdır.'); payload.name = name.trim(); }
+    if (parentId !== undefined) payload.parent_id = parentId === null || parentId === 'none' ? null : parentId;
+    return discord('/channels/' + channelId, { method: 'PATCH', body: JSON.stringify(payload) });
+  });
+  ipcMain.handle('discord:reorder-channels', async (_event, { guildId, positions }) => {
+    if (typeof guildId !== 'string' || !/^\\d{17,20}$/.test(guildId) || !Array.isArray(positions) || !positions.length || positions.length > 100) throw new Error('Geçersiz sıralama isteği.');
+    for (const item of positions) if (!item || typeof item.id !== 'string' || !/^\\d{17,20}$/.test(item.id) || !Number.isInteger(item.position) || item.position < 0) throw new Error('Geçersiz kanal konumu.');
+    return discord('/guilds/' + guildId + '/channels', { method: 'PATCH', body: JSON.stringify(positions) });
+  });
+  ipcMain.handle('discord:set-role-permissions', async (_event, { guildId, roleId, permissions }) => {
+    if (![guildId, roleId].every(value => typeof value === 'string' && /^\\d{17,20}$/.test(value)) || typeof permissions !== 'string' || !/^\\d+$/.test(permissions)) throw new Error('Geçersiz rol veya izin bilgisi.');
+    return discord('/guilds/' + guildId + '/roles/' + roleId, { method: 'PATCH', body: JSON.stringify({ permissions }) });
+  });
   ipcMain.handle('discord:delete-channel', async (_event, channelId) => discord('/channels/' + channelId, { method: 'DELETE' }));
   ipcMain.handle('discord:bulk-delete-channels', async (_event, channelIds) => {
     if (!Array.isArray(channelIds) || channelIds.length < 1 || channelIds.length > 50 || !channelIds.every(id => typeof id === 'string' && /^\d{17,20}$/.test(id))) throw new Error('Select between 1 and 50 valid channels.');
