@@ -40,6 +40,10 @@ function App() {
   const [permissionRoleName, setPermissionRoleName] = useState('');
   const [permissionValues, setPermissionValues] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState('');
+  const [bulkSelected, setBulkSelected] = useState<string[]>([]);
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkPrefix, setBulkPrefix] = useState('');
+  const [bulkSuffix, setBulkSuffix] = useState('');
   const totalChannels = useMemo(() => categories.reduce((n, c) => n + c.channels.length, 0), [categories]);
   const allChannels = useMemo(() => categories.flatMap(c => c.channels), [categories]);
   const selectedPermissionRoleId = roleIds[permissionRoleName];
@@ -109,6 +113,16 @@ function App() {
     catch (error) { notify(error instanceof Error ? error.message : 'Role could not be deleted.'); }
     finally { setBusy(false); }
   };
+  const runBulkAction = async (action: 'delete' | 'update') => {
+    if (!connected) return notify('Connect your Discord bot first.');
+    if (!bulkSelected.length) return notify('Select at least one channel.');
+    if (action === 'delete' && !window.confirm(`Delete ${bulkSelected.length} selected channels from Discord? This cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      const result = action === 'delete' ? await window.whippin.bulkDeleteChannels(bulkSelected) : await window.whippin.bulkUpdateChannels({ channelIds: bulkSelected, ...(bulkCategory ? { parentId: bulkCategory } : {}), prefix: bulkPrefix, suffix: bulkSuffix });
+      await refreshStructure(); setBulkSelected(result.failed.length ? result.succeeded : []); notify(`${result.succeeded.length} successful, ${result.failed.length} failed.`);
+    } catch (error) { notify(error instanceof Error ? error.message : 'Bulk action failed.'); } finally { setBusy(false); }
+  };
   const choosePermissionTarget = (channelId: string, roleName: string) => {
     setPermissionChannelId(channelId); setPermissionRoleName(roleName);
     const channel = allChannels.find(ch => ch.id === channelId) as (Channel & { permission_overwrites?: { id: string; allow: string; deny: string }[] }) | undefined;
@@ -166,7 +180,21 @@ function App() {
             <div style={{display:'flex',justifyContent:'flex-end',marginTop:20}}><button className="primary-button" disabled={busy||!permissionChannelId||!selectedPermissionRoleId} onClick={savePermissions}>{busy?'Saving…':'Save permission overrides'} <ShieldCheck size={16}/></button></div>
           </>}
         </section>}
-        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
+        {page === 'Bulk Actions' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>BULK CHANNEL OPERATIONS</h3><p>Select channels and apply changes across your server</p></div><span className="coming-badge">{bulkSelected.length} SELECTED</span></div>
+          {!connected ? <div className="empty-state compact"><Zap size={25}/><b>Connect a Discord server</b><span>Bulk operations run against your live server through your official bot.</span><button className="outline-button" onClick={() => openModal('server')}>Connect Discord</button></div> : <>
+            <div className="inline-actions" style={{marginBottom:12}}><button className="outline-button" onClick={()=>setBulkSelected(allChannels.filter(ch=>ch.id).map(ch=>ch.id!))}>Select all</button><button className="outline-button" onClick={()=>setBulkSelected([])}>Clear selection</button></div>
+            <div className="role-list">{categories.map(cat=><div key={cat.id||cat.name}><div className="manager-category-title"><Folder size={15}/><b>{cat.name}</b></div>{cat.channels.filter(ch=>ch.id).map(ch=><label className="manager-channel" key={ch.id} style={{justifyContent:'flex-start',gap:12,cursor:'pointer'}}><input type="checkbox" checked={bulkSelected.includes(ch.id!)} onChange={e=>setBulkSelected(old=>e.target.checked?[...old,ch.id!]:old.filter(id=>id!==ch.id))}/>{ch.type==='voice'?<Headphones size={15}/>:<Hash size={15}/>}<span>{ch.name}</span><small>{ch.type.toUpperCase()}</small></label>)}</div>)}</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:18}}>
+              <label className="field-label">MOVE TO CATEGORY<select value={bulkCategory} onChange={e=>setBulkCategory(e.target.value)}><option value="">Keep current category</option>{categories.filter(c=>c.id).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}<option value="none">No category</option></select></label><div/>
+              <label className="field-label">RENAME PREFIX<input value={bulkPrefix} onChange={e=>setBulkPrefix(e.target.value)} placeholder="e.g. vip-"/></label>
+              <label className="field-label">RENAME SUFFIX<input value={bulkSuffix} onChange={e=>setBulkSuffix(e.target.value)} placeholder="e.g. -2026"/></label>
+            </div>
+            <div className="notice"><Shield size={16}/><span>Operations affect real Discord channels. Failed items are reported separately; bulk delete cannot be undone.</span></div>
+            <div className="inline-actions" style={{justifyContent:'flex-end',marginTop:16}}><button className="outline-button" disabled={busy||!bulkSelected.length} onClick={()=>runBulkAction('delete')} style={{color:'#ff9b9b',borderColor:'#704044'}}>Delete selected</button><button className="primary-button" disabled={busy||!bulkSelected.length||(!bulkCategory&&!bulkPrefix&&!bulkSuffix)} onClick={()=>runBulkAction('update')}>{busy?'Applying…':'Apply move / rename'} <Zap size={15}/></button></div>
+          </>}
+        </section>}
+        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Bulk Actions' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
         <footer className="app-footer"><span>WHIPPIN <b>v0.1.0</b></span><span>BUILT FOR SERVER OWNERS <i/> SECURE BY DESIGN</span></footer>
       </div>
     </main>
