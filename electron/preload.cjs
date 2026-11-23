@@ -9,5 +9,13 @@ contextBridge.exposeInMainWorld('whippin', {
   setChannelPermissions: (payload) => ipcRenderer.invoke('discord:set-channel-permissions', payload),
   createRole: (payload) => ipcRenderer.invoke('discord:create-role', payload),
   deleteRole: (payload) => ipcRenderer.invoke('discord:delete-role', payload),
-  disconnect: () => ipcRenderer.invoke('discord:disconnect')
+  disconnect: () => ipcRenderer.invoke('discord:disconnect'),
+  getAppVersion: () => ipcRenderer.invoke('app:version'),
+  checkForUpdates: () => ipcRenderer.invoke('app:check-updates'),
+  installUpdate: () => ipcRenderer.invoke('app:install-update'),
+  onUpdateStatus: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('app:update-status', listener);
+    return () => ipcRenderer.removeListener('app:update-status', listener);
+  }
 });
