@@ -40,16 +40,16 @@ function registerDiscordHandlers() {
     return { guild: { id: guild.id, name: guild.name, icon: guild.icon }, channels, roles };
   });
   ipcMain.handle('discord:members', async (_event, { guildId, after }) => {
-    if (typeof guildId !== 'string' || !/^\\d{17,20}$/.test(guildId)) throw new Error('Geçersiz sunucu kimliği.');
+    if (typeof guildId !== 'string' || !/^\d{17,20}$/.test(guildId)) throw new Error('Geçersiz sunucu kimliği.');
     const query = new URLSearchParams({ limit: '1000' });
     if (after) query.set('after', after);
     return discord('/guilds/' + guildId + '/members?' + query.toString());
   });
   ipcMain.handle('discord:update-member', async (_event, { guildId, userId, nickname, roles, timeoutUntil }) => {
-    if (![guildId,userId].every(value => typeof value === 'string' && /^\\d{17,20}$/.test(value))) throw new Error('Geçersiz üye kimliği.');
+    if (![guildId,userId].every(value => typeof value === 'string' && /^\d{17,20}$/.test(value))) throw new Error('Geçersiz üye kimliği.');
     const payload = {};
     if (nickname !== undefined) payload.nick = nickname === null ? null : String(nickname).slice(0,32);
-    if (roles !== undefined) { if (!Array.isArray(roles) || !roles.every(id => typeof id === 'string' && /^\\d{17,20}$/.test(id))) throw new Error('Geçersiz rol listesi.'); payload.roles = roles; }
+    if (roles !== undefined) { if (!Array.isArray(roles) || !roles.every(id => typeof id === 'string' && /^\d{17,20}$/.test(id))) throw new Error('Geçersiz rol listesi.'); payload.roles = roles; }
     if (timeoutUntil !== undefined) payload.communication_disabled_until = timeoutUntil;
     return discord('/guilds/' + guildId + '/members/' + userId, { method: 'PATCH', body: JSON.stringify(payload) });
   });
@@ -59,7 +59,7 @@ function registerDiscordHandlers() {
   ipcMain.handle('discord:get-bans', async (_event, guildId) => discord('/guilds/' + guildId + '/bans?limit=1000'));
   ipcMain.handle('discord:get-invites', async (_event, guildId) => discord('/guilds/' + guildId + '/invites'));
   ipcMain.handle('discord:create-invite', async (_event, { channelId, maxAge, maxUses, temporary }) => {
-    if (typeof channelId !== 'string' || !/^\\d{17,20}$/.test(channelId)) throw new Error('Geçersiz davet kanalı.');
+    if (typeof channelId !== 'string' || !/^\d{17,20}$/.test(channelId)) throw new Error('Geçersiz davet kanalı.');
     const age = Number(maxAge), uses = Number(maxUses);
     if (!Number.isInteger(age) || age < 0 || age > 604800 || !Number.isInteger(uses) || uses < 0 || uses > 100) throw new Error('Davet süresi veya kullanım sayısı geçersiz.');
     return discord('/channels/' + channelId + '/invites', { method: 'POST', body: JSON.stringify({ max_age: age, max_uses: uses, temporary: Boolean(temporary), unique: true }) });
@@ -71,13 +71,13 @@ function registerDiscordHandlers() {
   ipcMain.handle('discord:audit-logs', async (_event, guildId) => { const result = await discord('/guilds/' + guildId + '/audit-logs?limit=100'); return result.audit_log_entries || []; });
 
   ipcMain.handle('discord:get-messages', async (_event, { channelId, before }) => {
-    if (typeof channelId !== 'string' || !/^\\d{17,20}$/.test(channelId)) throw new Error('Geçersiz kanal kimliği.');
+    if (typeof channelId !== 'string' || !/^\d{17,20}$/.test(channelId)) throw new Error('Geçersiz kanal kimliği.');
     const query = new URLSearchParams({ limit: '100' }); if (before) query.set('before', before);
     return discord('/channels/' + channelId + '/messages?' + query.toString());
   });
   ipcMain.handle('discord:delete-message', async (_event, { channelId, messageId }) => discord('/channels/' + channelId + '/messages/' + messageId, { method: 'DELETE' }));
   ipcMain.handle('discord:bulk-delete-messages', async (_event, { channelId, messageIds }) => {
-    if (typeof channelId !== 'string' || !/^\\d{17,20}$/.test(channelId) || !Array.isArray(messageIds) || messageIds.length < 2 || messageIds.length > 100 || !messageIds.every(id => typeof id === 'string' && /^\\d{17,20}$/.test(id))) throw new Error('Toplu silme için 2-100 geçerli mesaj seçin.');
+    if (typeof channelId !== 'string' || !/^\d{17,20}$/.test(channelId) || !Array.isArray(messageIds) || messageIds.length < 2 || messageIds.length > 100 || !messageIds.every(id => typeof id === 'string' && /^\d{17,20}$/.test(id))) throw new Error('Toplu silme için 2-100 geçerli mesaj seçin.');
     return discord('/channels/' + channelId + '/messages/bulk-delete', { method: 'POST', body: JSON.stringify({ messages: messageIds }) });
   });
   ipcMain.handle('discord:create-channel', async (_event, { guildId, name, type, parentId }) => {
