@@ -30,21 +30,43 @@ const serverTemplates: ServerTemplate[] = [
   ]}
 ];
 const permissionBits = [
-  {key:'view',label:'Kanalları görüntüle',bit:1024n},{key:'send',label:'Mesaj gönder',bit:2048n},{key:'manageMessages',label:'Mesajları yönet',bit:8192n},
-  {key:'manageChannels',label:'Kanalları yönet',bit:16n},{key:'manageWebhooks',label:'Webhook yönet',bit:536870912n},{key:'createInvite',label:'Davet oluştur',bit:1n},
+  {key:'createInvite',label:'Davet oluştur',bit:1n},{key:'manageChannels',label:'Kanalları yönet',bit:16n},{key:'addReactions',label:'Tepki ekle',bit:64n},
+  {key:'priority',label:'Öncelikli konuşmacı',bit:256n},{key:'stream',label:'Ekran paylaşımı',bit:512n},{key:'view',label:'Kanalları görüntüle',bit:1024n},
+  {key:'send',label:'Mesaj gönder',bit:2048n},{key:'sendTts',label:'Metni sese dönüştürerek gönder',bit:4096n},{key:'manageMessages',label:'Mesajları yönet',bit:8192n},
   {key:'embed',label:'Bağlantı önizlemeleri',bit:16384n},{key:'attach',label:'Dosya ekle',bit:32768n},{key:'history',label:'Mesaj geçmişini oku',bit:65536n},
-  {key:'mention',label:'Herkesten bahset',bit:131072n},{key:'addReactions',label:'Tepki ekle',bit:64n},{key:'externalEmoji',label:'Harici emoji kullan',bit:262144n},
-  {key:'connect',label:'Ses kanalına bağlan',bit:1048576n},{key:'speak',label:'Konuş',bit:2097152n},{key:'video',label:'Video kullan',bit:512n},
-  {key:'mute',label:'Üyeleri sustur',bit:4194304n},{key:'deafen',label:'Üyeleri sağırlaştır',bit:8388608n},{key:'move',label:'Üyeleri taşı',bit:16777216n},{key:'priority',label:'Öncelikli konuşmacı',bit:256n}
+  {key:'mention',label:'Herkesten bahset',bit:131072n},{key:'externalEmoji',label:'Harici emoji kullan',bit:262144n},{key:'connect',label:'Ses kanalına bağlan',bit:1048576n},
+  {key:'speak',label:'Konuş',bit:2097152n},{key:'mute',label:'Üyeleri sustur',bit:4194304n},{key:'deafen',label:'Üyeleri sağırlaştır',bit:8388608n},
+  {key:'move',label:'Üyeleri taşı',bit:16777216n},{key:'useVad',label:'Ses etkinliği kullan',bit:33554432n},{key:'manageWebhooks',label:'Webhook yönet',bit:536870912n},
+  {key:'manageExpressions',label:'Emoji ve çıkartmaları yönet',bit:1073741824n},{key:'useAppCommands',label:'Uygulama komutlarını kullan',bit:2147483648n},
+  {key:'requestSpeak',label:'Konuşma isteği gönder',bit:4294967296n},{key:'manageThreads',label:'Konuları yönet',bit:17179869184n},
+  {key:'createPublicThreads',label:'Herkese açık konu oluştur',bit:34359738368n},{key:'createPrivateThreads',label:'Özel konu oluştur',bit:68719476736n},
+  {key:'externalStickers',label:'Harici çıkartma kullan',bit:137438953472n},{key:'sendInThreads',label:'Konularda mesaj gönder',bit:274877906944n},
+  {key:'useActivities',label:'Ses etkinliklerini kullan',bit:549755813888n},{key:'moderate',label:'Üyelere zaman aşımı uygula',bit:1099511627776n},
+  {key:'soundboard',label:'Ses tahtası kullan',bit:4398046511104n},{key:'externalSounds',label:'Harici ses kullan',bit:35184372088832n},
+  {key:'sendVoice',label:'Sesli mesaj gönder',bit:70368744177664n},{key:'sendPolls',label:'Anket oluştur',bit:562949953421312n},
+  {key:'pinMessages',label:'Mesaj sabitle',bit:2251799813685248n},{key:'bypassSlowmode',label:'Yavaş modu aş',bit:4503599627370496n}
 ];
 const rolePermissionBits = [
-  {key:'administrator',label:'Yönetici',bit:8n},{key:'manageGuild',label:'Sunucuyu yönet',bit:32n},{key:'manageRoles',label:'Rolleri yönet',bit:268435456n},
-  {key:'manageChannels',label:'Kanalları yönet',bit:16n},{key:'view',label:'Kanalları görüntüle',bit:1024n},{key:'send',label:'Mesaj gönder',bit:2048n},
-  {key:'manageMessages',label:'Mesajları yönet',bit:8192n},{key:'manageWebhooks',label:'Webhook yönet',bit:536870912n},{key:'kick',label:'Üyeleri at',bit:2n},
-  {key:'ban',label:'Üyeleri yasakla',bit:4n},{key:'moderate',label:'Üyelere zaman aşımı uygula',bit:1099511627776n},{key:'manageNicknames',label:'Takma adları yönet',bit:134217728n},
-  {key:'createInvite',label:'Davet oluştur',bit:1n},{key:'manageEvents',label:'Etkinlikleri yönet',bit:8589934592n},{key:'manageExpressions',label:'Emoji ve çıkartmaları yönet',bit:1073741824n},
-  {key:'connect',label:'Ses kanalına bağlan',bit:1048576n},{key:'speak',label:'Konuş',bit:2097152n},{key:'mute',label:'Üyeleri sustur',bit:4194304n},
-  {key:'deafen',label:'Üyeleri sağırlaştır',bit:8388608n},{key:'move',label:'Üyeleri taşı',bit:16777216n}
+  {key:'createInvite',label:'Davet oluştur',bit:1n},{key:'kick',label:'Üyeleri at',bit:2n},{key:'ban',label:'Üyeleri yasakla',bit:4n},
+  {key:'administrator',label:'Yönetici',bit:8n},{key:'manageChannels',label:'Kanalları yönet',bit:16n},{key:'manageGuild',label:'Sunucuyu yönet',bit:32n},
+  {key:'addReactions',label:'Tepki ekle',bit:64n},{key:'viewAuditLog',label:'Denetim kaydını görüntüle',bit:128n},{key:'priority',label:'Öncelikli konuşmacı',bit:256n},
+  {key:'stream',label:'Ekran paylaşımı',bit:512n},{key:'view',label:'Kanalları görüntüle',bit:1024n},{key:'send',label:'Mesaj gönder',bit:2048n},
+  {key:'sendTts',label:'Metni sese dönüştürerek gönder',bit:4096n},{key:'manageMessages',label:'Mesajları yönet',bit:8192n},{key:'embed',label:'Bağlantı önizlemeleri',bit:16384n},
+  {key:'attach',label:'Dosya ekle',bit:32768n},{key:'history',label:'Mesaj geçmişini oku',bit:65536n},{key:'mention',label:'Herkesten bahset',bit:131072n},
+  {key:'externalEmoji',label:'Harici emoji kullan',bit:262144n},{key:'viewInsights',label:'Sunucu analizlerini görüntüle',bit:524288n},{key:'connect',label:'Ses kanalına bağlan',bit:1048576n},
+  {key:'speak',label:'Konuş',bit:2097152n},{key:'mute',label:'Üyeleri sustur',bit:4194304n},{key:'deafen',label:'Üyeleri sağırlaştır',bit:8388608n},
+  {key:'move',label:'Üyeleri taşı',bit:16777216n},{key:'useVad',label:'Ses etkinliği kullan',bit:33554432n},{key:'changeNickname',label:'Takma adını değiştir',bit:67108864n},
+  {key:'manageNicknames',label:'Takma adları yönet',bit:134217728n},{key:'manageRoles',label:'Rolleri yönet',bit:268435456n},{key:'manageWebhooks',label:'Webhook yönet',bit:536870912n},
+  {key:'manageExpressions',label:'Emoji ve çıkartmaları yönet',bit:1073741824n},{key:'useAppCommands',label:'Uygulama komutlarını kullan',bit:2147483648n},
+  {key:'requestSpeak',label:'Konuşma isteği gönder',bit:4294967296n},{key:'manageEvents',label:'Etkinlikleri yönet',bit:8589934592n},
+  {key:'manageThreads',label:'Konuları yönet',bit:17179869184n},{key:'createPublicThreads',label:'Herkese açık konu oluştur',bit:34359738368n},
+  {key:'createPrivateThreads',label:'Özel konu oluştur',bit:68719476736n},{key:'externalStickers',label:'Harici çıkartma kullan',bit:137438953472n},
+  {key:'sendInThreads',label:'Konularda mesaj gönder',bit:274877906944n},{key:'useActivities',label:'Ses etkinliklerini kullan',bit:549755813888n},
+  {key:'moderate',label:'Üyelere zaman aşımı uygula',bit:1099511627776n},{key:'soundboard',label:'Ses tahtası kullan',bit:4398046511104n},
+  {key:'createExpressions',label:'Emoji ve çıkartma oluştur',bit:8796093022208n},{key:'createEvents',label:'Etkinlik oluştur',bit:17592186044416n},
+  {key:'externalSounds',label:'Harici ses kullan',bit:35184372088832n},{key:'sendVoice',label:'Sesli mesaj gönder',bit:70368744177664n},
+  {key:'sendPolls',label:'Anket oluştur',bit:562949953421312n},{key:'useExternalApps',label:'Harici uygulama kullan',bit:1125899906842624n},
+  {key:'pinMessages',label:'Mesaj sabitle',bit:2251799813685248n},{key:'bypassSlowmode',label:'Yavaş modu aş',bit:4503599627370496n}
 ];
 const navigation: { group: string; items: { label: Page; icon: typeof LayoutDashboard }[] }[] = [
   { group: 'ÇALIŞMA ALANI', items: [{ label: 'Dashboard', icon: LayoutDashboard }, { label: 'Server Structure', icon: Folder }, { label: 'Channels', icon: Hash }, { label: 'Roles', icon: ShieldCheck }, { label: 'Permissions', icon: LockKeyhole }] },
