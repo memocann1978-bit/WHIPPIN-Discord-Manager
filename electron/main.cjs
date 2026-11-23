@@ -39,6 +39,34 @@ function registerDiscordHandlers() {
     const [guild, channels, roles] = await Promise.all([discord('/guilds/' + guildId), discord('/guilds/' + guildId + '/channels'), discord('/guilds/' + guildId + '/roles')]);
     return { guild: { id: guild.id, name: guild.name, icon: guild.icon }, channels, roles };
   });
+  ipcMain.handle('discord:members', async (_event, { guildId, after }) => {
+    if (typeof guildId !== 'string' || !/^\\d{17,20}$/.test(guildId)) throw new Error('Geçersiz sunucu kimliği.');
+    const query = new URLSearchParams({ limit: '1000' });
+    if (after) query.set('after', after);
+    return discord('/guilds/' + guildId + '/members?' + query.toString());
+  });
+  ipcMain.handle('discord:update-member', async (_event, { guildId, userId, nickname, roles, timeoutUntil }) => {
+    if (![guildId,userId].every(value => typeof value === 'string' && /^\\d{17,20}$/.test(value))) throw new Error('Geçersiz üye kimliği.');
+    const payload = {};
+    if (nickname !== undefined) payload.nick = nickname === null ? null : String(nickname).slice(0,32);
+    if (roles !== undefined) { if (!Array.isArray(roles) || !roles.every(id => typeof id === 'string' && /^\\d{17,20}$/.test(id))) throw new Error('Geçersiz rol listesi.'); payload.roles = roles; }
+    if (timeoutUntil !== undefined) payload.communication_disabled_until = timeoutUntil;
+    return discord('/guilds/' + guildId + '/members/' + userId, { method: 'PATCH', body: JSON.stringify(payload) });
+  });
+  ipcMain.handle('discord:kick-member', async (_event, { guildId, userId }) => discord('/guilds/' + guildId + '/members/' + userId, { method: 'DELETE' }));
+  ipcMain.handle('discord:ban-member', async (_event, { guildId, userId, reason }) => discord('/guilds/' + guildId + '/bans/' + userId, { method: 'PUT', body: JSON.stringify({ delete_message_seconds: 0 }), headers: { 'X-Audit-Log-Reason': encodeURIComponent(String(reason || 'WHIPPIN üzerinden yasaklandı').slice(0, 500)) } }));
+  ipcMain.handle('discord:unban-member', async (_event, { guildId, userId }) => discord('/guilds/' + guildId + '/bans/' + userId, { method: 'DELETE' }));
+  ipcMain.handle('discord:get-bans', async (_event, guildId) => discord('/guilds/' + guildId + '/bans?limit=1000'));
+  ipcMain.handle('discord:get-messages', async (_event, { channelId, before }) => {
+    if (typeof channelId !== 'string' || !/^\\d{17,20}$/.test(channelId)) throw new Error('Geçersiz kanal kimliği.');
+    const query = new URLSearchParams({ limit: '100' }); if (before) query.set('before', before);
+    return discord('/channels/' + channelId + '/messages?' + query.toString());
+  });
+  ipcMain.handle('discord:delete-message', async (_event, { channelId, messageId }) => discord('/channels/' + channelId + '/messages/' + messageId, { method: 'DELETE' }));
+  ipcMain.handle('discord:bulk-delete-messages', async (_event, { channelId, messageIds }) => {
+    if (typeof channelId !== 'string' || !/^\\d{17,20}$/.test(channelId) || !Array.isArray(messageIds) || messageIds.length < 2 || messageIds.length > 100 || !messageIds.every(id => typeof id === 'string' && /^\\d{17,20}$/.test(id))) throw new Error('Toplu silme için 2-100 geçerli mesaj seçin.');
+    return discord('/channels/' + channelId + '/messages/bulk-delete', { method: 'POST', body: JSON.stringify({ messages: messageIds }) });
+  });
   ipcMain.handle('discord:create-channel', async (_event, { guildId, name, type, parentId }) => {
     const payload = { name, type: type === 'voice' ? 2 : type === 'category' ? 4 : 0 };
     if (parentId) payload.parent_id = parentId;
