@@ -6,6 +6,9 @@ declare global {
       getStructure(guildId: string): Promise<{ guild: { id: string; name: string; icon: string | null }; channels: DiscordChannel[]; roles: DiscordRole[] }>;
       createChannel(payload: { guildId: string; name: string; type: 'text' | 'voice' | 'category'; parentId?: string }): Promise<DiscordChannel>;
       deleteChannel(channelId: string): Promise<null>;
+      updateChannel(payload: { channelId: string; name?: string; parentId?: string | null }): Promise<DiscordChannel>;
+      reorderChannels(payload: { guildId: string; positions: { id: string; position: number; parent_id?: string | null }[] }): Promise<DiscordChannel[]>;
+      setRolePermissions(payload: { guildId: string; roleId: string; permissions: string }): Promise<DiscordRole>;
       bulkDeleteChannels(channelIds: string[]): Promise<{ succeeded: string[]; failed: { id: string; message: string }[] }>;
       bulkUpdateChannels(payload: { channelIds: string[]; parentId?: string | null; prefix: string; suffix: string }): Promise<{ succeeded: string[]; failed: { id: string; message: string }[] }>;
       setChannelPermissions(payload: { channelId: string; roleId: string; allow: string; deny: string }): Promise<null>;
