@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Activity, ArrowDown, ArrowDownUp, ArrowUp, Bell, Blocks, Bot, ChevronDown, ChevronLeft, ChevronRight,
   CircleHelp, ClipboardList, Clock3, Command, Crown, Folder, Hash, Headphones,
-  LayoutDashboard, LockKeyhole, Menu, MessageSquare, Plus, Search, Server,
+  LayoutDashboard, LockKeyhole, Menu, MessageSquare, Plus, Search, Server, Ticket, ScrollText, Ban,
   Settings, Shield, ShieldCheck, Sparkles, Users, Wifi, X, Zap
 } from 'lucide-react';
 
-type Page = 'Dashboard' | 'Server Structure' | 'Channels' | 'Roles' | 'Permissions' | 'Members' | 'Messages' | 'Templates' | 'Bulk Actions' | 'Activity Logs' | 'Settings';
-const pageLabels: Record<Page, string> = { Dashboard: 'Genel Bakış', 'Server Structure': 'Sunucu Yapısı', Channels: 'Kanallar', Roles: 'Roller', Permissions: 'İzinler', Members: 'Üye Yönetimi', Messages: 'Mesaj Yönetimi', Templates: 'Şablonlar', 'Bulk Actions': 'Toplu İşlemler', 'Activity Logs': 'İşlem Geçmişi', Settings: 'Ayarlar' };
+type Page = 'Dashboard' | 'Server Structure' | 'Channels' | 'Roles' | 'Permissions' | 'Members' | 'Messages' | 'Bans' | 'Invites' | 'Audit Log' | 'Templates' | 'Bulk Actions' | 'Activity Logs' | 'Settings';
+const pageLabels: Record<Page, string> = { Dashboard: 'Genel Bakış', 'Server Structure': 'Sunucu Yapısı', Channels: 'Kanallar', Roles: 'Roller', Permissions: 'İzinler', Members: 'Üye Yönetimi', Messages: 'Mesaj Yönetimi', Bans: 'Yasaklı Üyeler', Invites: 'Davet Yönetimi', 'Audit Log': 'Denetim Kaydı', Templates: 'Şablonlar', 'Bulk Actions': 'Toplu İşlemler', 'Activity Logs': 'İşlem Geçmişi', Settings: 'Ayarlar' };
 type Channel = { id?: string; name: string; type: 'text' | 'voice'; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[] };
 type Category = { id?: string; name: string; channels: Channel[]; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[] };
 type ActivityEntry = { id: number; action: string; detail: string; time: string; };
@@ -70,7 +70,7 @@ const rolePermissionBits = [
 ];
 const navigation: { group: string; items: { label: Page; icon: typeof LayoutDashboard }[] }[] = [
   { group: 'ÇALIŞMA ALANI', items: [{ label: 'Dashboard', icon: LayoutDashboard }, { label: 'Server Structure', icon: Folder }, { label: 'Channels', icon: Hash }, { label: 'Roles', icon: ShieldCheck }, { label: 'Permissions', icon: LockKeyhole }] },
-  { group: 'YÖNETİM', items: [{ label: 'Members', icon: Users }, { label: 'Messages', icon: MessageSquare }, { label: 'Templates', icon: Blocks }, { label: 'Bulk Actions', icon: Zap }, { label: 'Activity Logs', icon: ClipboardList }] },
+  { group: 'YÖNETİM', items: [{ label: 'Members', icon: Users }, { label: 'Messages', icon: MessageSquare }, { label: 'Bans', icon: Ban }, { label: 'Invites', icon: Ticket }, { label: 'Audit Log', icon: ScrollText }, { label: 'Templates', icon: Blocks }, { label: 'Bulk Actions', icon: Zap }, { label: 'Activity Logs', icon: ClipboardList }] },
   { group: 'TERCİHLER', items: [{ label: 'Settings', icon: Settings }] }
 ];
 const initialCategories: Category[] = [
@@ -107,6 +107,16 @@ function App() {
   const [bulkSuffix, setBulkSuffix] = useState('');
   const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([]);
   const [members, setMembers] = useState<DiscordMember[]>([]);
+  const [bans, setBans] = useState<{ user: DiscordUser; reason?: string }[]>([]);
+  const [banLoading, setBanLoading] = useState(false);
+  const [invites, setInvites] = useState<DiscordInvite[]>([]);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteChannelId, setInviteChannelId] = useState('');
+  const [inviteMaxAge, setInviteMaxAge] = useState(86400);
+  const [inviteMaxUses, setInviteMaxUses] = useState(0);
+  const [inviteTemporary, setInviteTemporary] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<{ id: string; action_type: number; user_id?: string; target_id?: string; reason?: string; changes?: { key: string; new_value?: unknown; old_value?: unknown }[] }[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [memberQuery, setMemberQuery] = useState('');
   const [memberLoading, setMemberLoading] = useState(false);
   const [messageChannelId, setMessageChannelId] = useState('');
@@ -169,6 +179,45 @@ function App() {
     try { const data = await window.whippin.getMessages({ channelId: messageChannelId }); setMessages(data); setSelectedMessages([]); }
     catch (error) { notify(error instanceof Error ? error.message : 'Mesajlar yüklenemedi.'); }
     finally { setMessageLoading(false); }
+  };
+  const refreshBans = async () => {
+    if (!connected) return notify('Önce Discord sunucunuzu bağlayın.');
+    setBanLoading(true);
+    try { setBans(await window.whippin.getBans(serverId)); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Yasaklı üyeler alınamadı.'); }
+    finally { setBanLoading(false); }
+  };
+  const unbanUser = async (user: DiscordUser) => {
+    const name = user.global_name || user.username;
+    if (!window.confirm(name + ' kullanıcısının sunucu yasağı kaldırılsın mı?')) return;
+    try { await window.whippin.unbanMember({ guildId: serverId, userId: user.id }); setBans(old => old.filter(item => item.user.id !== user.id)); logActivity('Yasak kaldırıldı', name); notify('Kullanıcının yasağı kaldırıldı.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Yasak kaldırılamadı.'); }
+  };
+  const refreshInvites = async () => {
+    if (!connected) return notify('Önce Discord sunucunuzu bağlayın.');
+    setInviteLoading(true);
+    try { setInvites(await window.whippin.getInvites(serverId)); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Davetler alınamadı. Botta Sunucuyu Yönet izni olmalı.'); }
+    finally { setInviteLoading(false); }
+  };
+  const createServerInvite = async () => {
+    if (!inviteChannelId) return notify('Davet oluşturmak için bir yazı veya ses kanalı seçin.');
+    setInviteLoading(true);
+    try { const invite = await window.whippin.createInvite({ channelId: inviteChannelId, maxAge: inviteMaxAge, maxUses: inviteMaxUses, temporary: inviteTemporary }); await refreshInvites(); logActivity('Davet oluşturuldu', invite.code); notify('Davet bağlantısı oluşturuldu: discord.gg/' + invite.code); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Davet oluşturulamadı.'); }
+    finally { setInviteLoading(false); }
+  };
+  const revokeInvite = async (invite: DiscordInvite) => {
+    if (!window.confirm('discord.gg/' + invite.code + ' daveti iptal edilsin mi?')) return;
+    try { await window.whippin.deleteInvite(invite.code); setInvites(old => old.filter(item => item.code !== invite.code)); logActivity('Davet iptal edildi', invite.code); notify('Davet iptal edildi.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Davet iptal edilemedi.'); }
+  };
+  const refreshAuditLogs = async () => {
+    if (!connected) return notify('Önce Discord sunucunuzu bağlayın.');
+    setAuditLoading(true);
+    try { setAuditLogs(await window.whippin.getAuditLogs(serverId)); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Denetim kayıtları alınamadı. Botta Denetim Kaydını Görüntüle izni olmalı.'); }
+    finally { setAuditLoading(false); }
   };
   const memberAction = async (member: DiscordMember, action: 'timeout'|'kick'|'ban'|'nickname') => {
     const id = member.user.id, name = member.nick || member.user.global_name || member.user.username;
@@ -514,6 +563,35 @@ function App() {
             {!messages.length && <div className="empty-state compact"><MessageSquare size={24}/><b>Mesaj yok</b><span>Bir yazı kanalı seçip son mesajları getir.</span></div>}
           </>}
         </section>}
+        {page === 'Bans' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>YASAKLI ÜYELER</h3><p>Sunucudaki aktif yasakları görüntüleyin ve gerektiğinde kaldırın</p></div><button className="primary-button small" disabled={!connected||banLoading} onClick={refreshBans}><Activity size={15}/>{banLoading?'Yükleniyor…':'Yasakları yenile'}</button></div>
+          {!connected ? <div className="empty-state compact"><Ban size={26}/><b>Önce Discord sunucunuzu bağlayın</b></div> : <><div className="notice"><Shield size={16}/><span>Yasak kaldırma işlemi anında sunucuya uygulanır. Botun Üyeleri Yasakla izni bulunmalıdır.</span></div>
+            <div className="role-list">{bans.map(item=><div className="role-row" key={item.user.id}><div className="role-color" style={{background:'#e35d6a'}}/><div style={{flex:1,minWidth:0}}><b>{item.user.global_name||item.user.username}</b><small style={{display:'block',color:'#92899d',fontSize:10}}>{item.user.id}{item.reason?' · '+item.reason:''}</small></div><button className="outline-button" onClick={()=>unbanUser(item.user)}>Yasağı kaldır</button></div>)}</div>
+            {!bans.length && <div className="empty-state compact"><Ban size={24}/><b>Liste boş veya henüz yüklenmedi</b><button className="outline-button" onClick={refreshBans}>Yasakları getir</button></div>}
+          </>}
+        </section>}
+        {page === 'Invites' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>DAVET YÖNETİMİ</h3><p>Yeni davet bağlantıları oluşturun, kullanım durumlarını takip edin ve iptal edin</p></div><button className="outline-button" disabled={!connected||inviteLoading} onClick={refreshInvites}><Activity size={15}/> Yenile</button></div>
+          {!connected ? <div className="empty-state compact"><Ticket size={26}/><b>Önce Discord sunucunuzu bağlayın</b></div> : <>
+            <div className="manager-category" style={{padding:16,marginBottom:16}}><b style={{fontSize:13}}>Yeni davet oluştur</b>
+              <div className="permission-target-grid" style={{marginTop:12}}><label className="field-label">KANAL<select value={inviteChannelId} onChange={e=>setInviteChannelId(e.target.value)}><option value="">Kanal seçin</option>{categories.flatMap(c=>c.channels.filter(ch=>ch.id).map(ch=><option key={ch.id} value={ch.id}># {ch.name}</option>))}</select></label>
+                <label className="field-label">GEÇERLİLİK<select value={inviteMaxAge} onChange={e=>setInviteMaxAge(Number(e.target.value))}><option value={3600}>1 saat</option><option value={21600}>6 saat</option><option value={86400}>1 gün</option><option value={604800}>7 gün</option><option value={0}>Süresiz</option></select></label>
+                <label className="field-label">MAKSİMUM KULLANIM<select value={inviteMaxUses} onChange={e=>setInviteMaxUses(Number(e.target.value))}><option value={0}>Sınırsız</option>{[1,5,10,25,50,100].map(n=><option key={n} value={n}>{n} kullanım</option>)}</select></label>
+                <label className="manager-channel" style={{display:'flex',gap:9,alignItems:'center',padding:12}}><input type="checkbox" checked={inviteTemporary} onChange={e=>setInviteTemporary(e.target.checked)}/> Geçici üyelik (ayrılınca atılır)</label>
+              </div><div className="inline-actions" style={{justifyContent:'flex-end',marginTop:12}}><button className="primary-button" disabled={!inviteChannelId||inviteLoading} onClick={createServerInvite}>{inviteLoading?'İşleniyor…':'Davet oluştur'} <Plus size={15}/></button></div>
+            </div>
+            <div className="notice"><Shield size={16}/><span>Davetleri listelemek ve oluşturmak için botta Sunucuyu Yönet veya kanala göre Davet Oluştur izni gerekir. Süresiz ve sınırsız davetler dikkatli paylaşılmalıdır.</span></div>
+            <div className="role-list">{invites.map(invite=><div className="role-row" key={invite.code}><div className="role-color" style={{background:'#a879f5'}}/><div style={{flex:1,minWidth:0}}><b>discord.gg/{invite.code}</b><small style={{display:'block',color:'#92899d',fontSize:10}}>#{invite.channel?.name||'kanal'} · {invite.uses}/{invite.max_uses||'∞'} kullanım · {invite.max_age?Math.round(invite.max_age/3600)+' saat':'süresiz'}</small></div><button className="outline-button" onClick={()=>window.whippin && navigator.clipboard?.writeText('https://discord.gg/'+invite.code).then(()=>notify('Davet bağlantısı kopyalandı.')).catch(()=>notify('Bağlantı kopyalanamadı.'))}>Kopyala</button><button className="icon-button danger-icon" title="Daveti iptal et" onClick={()=>revokeInvite(invite)}><X size={15}/></button></div>)}</div>
+            {!invites.length && <div className="empty-state compact"><Ticket size={24}/><b>Henüz davet listesi yüklenmedi</b><button className="outline-button" onClick={refreshInvites}>Davetleri getir</button></div>}
+          </>}
+        </section>}
+        {page === 'Audit Log' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>DENETİM KAYITLARI</h3><p>Discord sunucusunda gerçekleşen yönetim hareketlerini inceleyin</p></div><button className="primary-button small" disabled={!connected||auditLoading} onClick={refreshAuditLogs}><Activity size={15}/>{auditLoading?'Yükleniyor…':'Kayıtları yenile'}</button></div>
+          {!connected ? <div className="empty-state compact"><ScrollText size={26}/><b>Önce Discord sunucunuzu bağlayın</b></div> : <><div className="notice"><Shield size={16}/><span>Discord denetim kaydı, Discord tarafından tutulan gerçek sunucu işlemlerini gösterir. Botta Denetim Kaydını Görüntüle izni olmalıdır.</span></div>
+            <div className="role-list">{auditLogs.map(entry=><div className="role-row" key={entry.id}><div className="role-color" style={{background:'#a879f5'}}/><div style={{flex:1,minWidth:0}}><b>{({1:'Sunucu güncellendi',10:'Kanal oluşturuldu',11:'Kanal güncellendi',12:'Kanal silindi',20:'Üye atıldı',22:'Üye yasaklandı',23:'Üye yasağı kaldırıldı',24:'Üyeye zaman aşımı uygulandı',25:'Üyenin zaman aşımı kaldırıldı',30:'Rol oluşturuldu',31:'Rol güncellendi',32:'Rol silindi',40:'Davet oluşturuldu',41:'Davet güncellendi',42:'Davet silindi',50:'Mesaj silindi',51:'Mesaj toplu silindi'} as Record<number,string>)[entry.action_type]||('İşlem türü '+entry.action_type)}</b><small style={{display:'block',color:'#92899d',fontSize:10}}>Yetkili: {entry.user_id||'Bilinmiyor'} · Hedef: {entry.target_id||'—'}{entry.reason?' · '+entry.reason:''}</small></div><time style={{fontSize:9,color:'#92899d'}}>#{entry.id.slice(-6)}</time></div>)}</div>
+            {!auditLogs.length && <div className="empty-state compact"><ScrollText size={24}/><b>Denetim kaydı henüz yüklenmedi</b><button className="outline-button" onClick={refreshAuditLogs}>Kayıtları getir</button></div>}
+          </>}
+        </section>}
         {page === 'Templates' && <section className="panel manager-panel">
           <div className="panel-heading"><div><h3>SUNUCU ŞABLONLARI</h3><p>Bağlı Discord sunucunuzda hazır kanal düzeni oluşturun</p></div><span className="coming-badge">3 HAZIR ŞABLON</span></div>
           <div className="notice"><Blocks size={16}/><span>Şablonlar yalnızca kategori ve kanal ekler. Mevcut sunucu yapınızı silmez veya değiştirmez. Sonucu Sunucu Yapısı bölümünde görebilirsiniz.</span></div>
@@ -557,7 +635,7 @@ function App() {
             <div className="inline-actions" style={{justifyContent:'flex-end',marginTop:16}}><button className="outline-button" disabled={busy||!bulkSelected.length} onClick={()=>runBulkAction('delete')} style={{color:'#ff9b9b',borderColor:'#704044'}}>Seçilenleri sil</button><button className="primary-button" disabled={busy||!bulkSelected.length||(!bulkCategory&&!bulkPrefix&&!bulkSuffix)} onClick={()=>runBulkAction('update')}>{busy?'Uygulanıyor…':'Taşıma / yeniden adlandırmayı uygula'} <Zap size={15}/></button></div>
           </>}
         </section>}
-        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Members' && page !== 'Messages' && page !== 'Bulk Actions' && page !== 'Activity Logs' && page !== 'Templates' && page !== 'Settings' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>Bu alanın arayüzü hazır; özellikleri sonraki geliştirme aşamasında eklenecek.</p><span className="coming-badge"><Sparkles size={13}/> Sonraki geliştirme aşamasında</span></section>}
+        {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Members' && page !== 'Messages' && page !== 'Bans' && page !== 'Invites' && page !== 'Audit Log' && page !== 'Bulk Actions' && page !== 'Activity Logs' && page !== 'Templates' && page !== 'Settings' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>Bu alanın arayüzü hazır; özellikleri sonraki geliştirme aşamasında eklenecek.</p><span className="coming-badge"><Sparkles size={13}/> Sonraki geliştirme aşamasında</span></section>}
         <footer className="app-footer"><span>WHIPPIN <b>v{appVersion}</b></span><span>SUNUCU SAHİPLERİ İÇİN <i/> GÜVENLİ TASARIM</span></footer>
       </div>
     </main>
