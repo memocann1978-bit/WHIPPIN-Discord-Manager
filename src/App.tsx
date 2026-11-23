@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Activity, ArrowDownUp, Bell, Blocks, Bot, ChevronDown, ChevronLeft, ChevronRight,
+  Activity, ArrowDown, ArrowDownUp, ArrowUp, Bell, Blocks, Bot, ChevronDown, ChevronLeft, ChevronRight,
   CircleHelp, ClipboardList, Clock3, Command, Crown, Folder, Hash, Headphones,
   LayoutDashboard, LockKeyhole, Menu, MessageSquare, Plus, Search, Server,
   Settings, Shield, ShieldCheck, Sparkles, Users, Wifi, X, Zap
@@ -337,22 +337,76 @@ function App() {
             <article className="panel quick-panel"><div className="panel-heading"><div><h3>HIZLI İŞLEMLER</h3><p>Yönetim işlemlerine hızlıca ulaşın</p></div><Zap size={17} className="muted-icon"/></div><div className="quick-list"><button onClick={() => openModal('channel')}><div className="quick-icon"><Hash size={17}/></div><span><b>Create channel</b><small>Yeni bir yazı veya ses kanalı ekleyin</small></span><ChevronRight size={16}/></button><button onClick={() => openModal('category')}><div className="quick-icon"><Folder size={17}/></div><span><b>Create category</b><small>Sunucu düzeninizi organize edin</small></span><ChevronRight size={16}/></button><button onClick={() => openModal('role')}><div className="quick-icon"><Shield size={17}/></div><span><b>Create role</b><small>Yeni bir sunucu rolü oluşturun</small></span><ChevronRight size={16}/></button><button onClick={() => setPage('Permissions')}><div className="quick-icon"><LockKeyhole size={17}/></div><span><b>İzinleri yönet</b><small>Rol ve kanal erişimini yapılandırın</small></span><ChevronRight size={16}/></button></div></article></section>
           <section className="panel activity-panel"><div className="panel-heading"><div><h3>SON İŞLEMLER</h3><p>Çalışma alanınızdaki son işlemler</p></div><button className="text-button" onClick={() => setPage('Activity Logs')}>İşlem geçmişi <ChevronRight size={14}/></button></div><div className="activity-empty"><Clock3 size={17}/> İşlem geçmişi sonraki bir güncellemede eklenecek.</div></section>
         </>}
-        {page === 'Server Structure' && <section className="panel manager-panel"><div className="panel-heading"><div><h3>YAPI GEZGİNİ</h3><p>Kategorilerinizi ve kanallarınızı yönetin</p></div><div className="inline-actions"><button className="outline-button" onClick={() => openModal('category')}><Plus size={15}/> Category</button><button className="primary-button small" onClick={() => openModal('channel')}><Plus size={15}/> Channel</button></div></div>{!connected && <div className="notice"><Shield size={17}/><span><b>Önizleme modu</b> — Gerçek sunucunuzu yüklemek ve düzenlemek için Discord botunuzu bağlayın.</span></div>}{visibleCategories.map(c=><div className="manager-category" key={c.id || c.name}><div className="manager-category-title"><Folder size={16}/><b>{c.name}</b><span>{c.channels.length} CHANNELS</span><button className="icon-button" onClick={() => notify('Category editing is not available yet.')}><Settings size={15}/></button></div>{c.channels.map(ch=><div className="manager-channel" key={ch.id || ch.name}><div>{ch.type === 'voice' ? <Headphones size={16}/> : <Hash size={16}/>}<span>{ch.name}</span><small>{ch.type.toUpperCase()}</small></div><button className="icon-button" onClick={() => connected ? removeChannel(c.name,ch) : notify('Connect your bot to make changes on Discord.')} title="Remove channel" disabled={busy}><X size={15}/></button></div>)}</div>)}</section>}
+        {page === 'Server Structure' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>SUNUCU YAPISI</h3><p>Kategorileri, kanalları ve sıralarını yönetin</p></div><div className="inline-actions"><button className="outline-button" onClick={() => openModal('category')}><Plus size={16}/> Kategori ekle</button><button className="primary-button small" onClick={() => openModal('channel')}><Plus size={16}/> Kanal ekle</button></div></div>
+          {!connected && <div className="notice"><Shield size={18}/><span>Önizleme modu. Gerçek sunucuda değişiklik yapmak için Discord botunuzu bağlayın.</span></div>}
+          {visibleCategories.map(c=><div className="manager-category" key={c.id || c.name}>
+            <div className="manager-category-title">
+              <Folder size={18}/><b>{c.name}</b><span>{c.channels.length} kanal</span>
+              {connected && c.id && <div className="inline-actions category-tools">
+                <button className="icon-button" title="Yukarı taşı" disabled={busy} onClick={()=>moveCategory(c,-1)}><ArrowUp size={16}/></button>
+                <button className="icon-button" title="Aşağı taşı" disabled={busy} onClick={()=>moveCategory(c,1)}><ArrowDown size={16}/></button>
+                <button className="icon-button" title="Kategori izinlerini kanallara eşitle" disabled={busy} onClick={()=>syncCategoryPermissions(c)}><ShieldCheck size={16}/></button>
+                <button className="icon-button" title="Kategori adını düzenle" disabled={busy} onClick={()=>editCategory(c)}><Settings size={16}/></button>
+                <button className="icon-button danger-icon" title="Kategoriyi sil" disabled={busy} onClick={()=>deleteCategory(c)}><X size={16}/></button>
+              </div>}
+            </div>
+            {c.channels.map(ch=><div className="manager-channel channel-management-row" key={ch.id || ch.name}>
+              <div className="channel-main">{ch.type === 'voice' ? <Headphones size={17}/> : <Hash size={17}/>}<span>{ch.name}</span><small>{ch.type === 'voice' ? 'SES' : 'YAZI'}</small></div>
+              {connected && ch.id && <div className="inline-actions channel-tools">
+                <select aria-label="Kanalı kategoriye taşı" className="move-select" value={c.id || 'none'} onChange={e=>moveChannel(ch,e.target.value)} disabled={busy}>
+                  <option value="none">Kategorisiz</option>{categories.filter(cat=>cat.id).map(cat=><option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                </select>
+                <button className="icon-button" title="Yukarı taşı" disabled={busy} onClick={()=>moveChannelOrder(c,ch,-1)}><ArrowUp size={15}/></button>
+                <button className="icon-button" title="Aşağı taşı" disabled={busy} onClick={()=>moveChannelOrder(c,ch,1)}><ArrowDown size={15}/></button>
+                <button className="icon-button" title="Kanal adını düzenle" disabled={busy} onClick={()=>editChannel(ch)}><Settings size={15}/></button>
+                <button className="icon-button danger-icon" title="Kanalı sil" disabled={busy} onClick={()=>removeChannel(c.name,ch)}><X size={15}/></button>
+              </div>}
+            </div>)}
+            {!c.channels.length && <div className="empty-category">Bu kategoride henüz kanal yok.</div>}
+          </div>)}
+          {connected && !visibleCategories.length && <div className="empty-state compact"><Folder size={24}/><b>Henüz kategori veya kanal yok</b><span>Yeni bir kategori ya da kanal oluşturarak başlayın.</span></div>}
+        </section>}
         {page === 'Channels' && <section className="panel manager-panel"><div className="panel-heading"><div><h3>KANAL YÖNETİMİ</h3><p>Sunucu kanallarını oluşturun, düzenleyin ve yapılandırın</p></div><button className="primary-button small" onClick={() => openModal('channel')}><Plus size={15}/> Yeni kanal</button></div><div className="empty-state compact"><Hash size={25}/><b>Channel management workspace</b><span>Canlı kanalları görüntülemek ve yönetmek için Sunucu Yapısı bölümünü kullanın.</span><button className="outline-button" onClick={() => setPage('Server Structure')}>Yapı gezginini aç</button></div></section>}
-        {page === 'Roles' && <section className="panel manager-panel"><div className="panel-heading"><div><h3>ROL YÖNETİMİ</h3><p>Sunucu rollerini ve hiyerarşisini yönetin</p></div><button className="primary-button small" onClick={() => openModal('role')}><Plus size={15}/> Yeni rol</button></div>{!connected && <div className="notice"><Shield size={17}/> Önizleme modu — sample roles are shown below.</div>}<div className="role-list">{roles.map((r,i)=><div className="role-row" key={roleIds[r] || r}><div className="role-color" style={{background:['#bd8cff','#f0b45f','#65a8e8','#65c7a2','#777181'][i%5]}}/><b>{r}</b><span>{i===0?'HIGHEST':r==='@everyone'?'DEFAULT':'ROL'}</span>{connected && r !== '@everyone' && <button className="icon-button" onClick={() => removeRole(r)} title="Delete role" disabled={busy}><X size={15}/></button>}</div>)}</div></section>}
-
+        {page === 'Roles' && <section className="panel manager-panel">
+          <div className="panel-heading"><div><h3>ROL YÖNETİMİ</h3><p>Rolleri oluşturun, silin ve ayrıntılı sunucu izinlerini yönetin</p></div><button className="primary-button small" onClick={() => openModal('role')}><Plus size={16}/> Yeni rol</button></div>
+          {!connected && <div className="notice"><Shield size={18}/> Rol izinlerini düzenlemek için önce Discord sunucunuzu bağlayın.</div>}
+          <div className="role-list">{roles.map((r,i)=><div className="role-row" key={roleIds[r] || r}><div className="role-color" style={{background:['#bd8cff','#f0b45f','#65a8e8','#65c7a2','#777181'][i%5]}}/><b>{r}</b><span>{i===0?'EN YÜKSEK':r==='@everyone'?'VARSAYILAN':'ROL'}</span>{connected && <button className="outline-button role-edit-button" onClick={()=>chooseRolePermissionTarget(r)}>İzinleri düzenle</button>}{connected && r !== '@everyone' && <button className="icon-button danger-icon" onClick={() => removeRole(r)} title="Rolü sil" disabled={busy}><X size={16}/></button>}</div>)}</div>
+          {connected && rolePermissionRoleName && <div className="permission-editor">
+            <div className="panel-heading"><div><h3>{rolePermissionRoleName} — ROL İZİNLERİ</h3><p>Seçili rolün sunucu genelindeki izinlerini düzenleyin</p></div><span className="coming-badge">{rolePermissionBits.filter(p=>rolePermissionValues[p.key]).length} AÇIK</span></div>
+            <div className="permission-grid">{rolePermissionBits.map(p=><button type="button" key={p.key} className={'permission-toggle '+(rolePermissionValues[p.key]?'is-allowed':'')} onClick={()=>setRolePermissionValues(old=>({...old,[p.key]:!old[p.key]}))}><span className="permission-check">{rolePermissionValues[p.key]?'✓':''}</span><b>{p.label}</b><span className="permission-state">{rolePermissionValues[p.key]?'AÇIK':'KAPALI'}</span></button>)}</div>
+            <div className="notice warning-notice"><Shield size={17}/><span>Yönetici izni tüm izinleri kapsar ve Discord'da tam yetki verir. Yalnızca güvendiğiniz rollere verin.</span></div>
+            <div className="inline-actions editor-actions"><button className="outline-button" onClick={()=>setRolePermissionRoleName('')}>Kapat</button><button className="primary-button" disabled={busy} onClick={saveRolePermissions}>Rol izinlerini kaydet <ShieldCheck size={16}/></button></div>
+          </div>}
+        </section>}
         {page === 'Permissions' && <section className="panel manager-panel">
-          <div className="panel-heading"><div><h3>CHANNEL PERMISSION EDITOR</h3><p>Her sunucu rolü için kanal erişimini ayarlayın</p></div></div>
-          {!connected ? <div className="empty-state compact"><LockKeyhole size={25}/><b>Connect a Discord server</b><span>Canlı izin yönetimi için resmi bot bağlantısı gerekir.</span><button className="outline-button" onClick={() => openModal('server')}>Connect Discord</button></div> : <>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,margin:'18px 0'}}>
-              <label className="field-label">CHANNEL<select value={permissionChannelId} onChange={e=>choosePermissionTarget(e.target.value,permissionRoleName)}><option value="">Channel seçin</option>{allChannels.filter(ch=>ch.id).map(ch=><option key={ch.id} value={ch.id}>#{ch.name}</option>)}</select></label>
-              <label className="field-label">ROLE<select value={permissionRoleName} onChange={e=>choosePermissionTarget(permissionChannelId,e.target.value)}><option value="">Rol seçin</option>{roles.map(r=><option key={r} value={r}>{r}</option>)}</select></label>
+          <div className="panel-heading"><div><h3>KATEGORİ VE KANAL İZİNLERİ</h3><p>Her rol için kategori veya kanal bazında erişim kuralları belirleyin</p></div></div>
+          {!connected ? <div className="empty-state compact"><LockKeyhole size={26}/><b>Discord sunucunuzu bağlayın</b><span>Canlı izin yönetimi için resmi bot bağlantısı gerekir.</span><button className="outline-button" onClick={() => openModal('server')}>Discord'u bağla</button></div> : <>
+            <div className="permission-target-grid">
+              <label className="field-label">KATEGORİ / KANAL
+                <select value={permissionChannelId} onChange={e=>choosePermissionTarget(e.target.value,permissionRoleName)}>
+                  <option value="">Bir kategori veya kanal seçin</option>
+                  {categories.filter(c=>c.id).map(c=><optgroup key={c.id} label={'KATEGORİ · '+c.name}><option value={c.id}>📁 {c.name} (kategori)</option>{c.channels.filter(ch=>ch.id).map(ch=><option key={ch.id} value={ch.id}>{ch.type==='voice'?'🔊':'#'} {ch.name}</option>)}</optgroup>)}
+                  {categories.filter(c=>!c.id).flatMap(c=>c.channels.filter(ch=>ch.id).map(ch=><option key={ch.id} value={ch.id}># {ch.name} (kategorisiz)</option>))}
+                </select>
+              </label>
+              <label className="field-label">ROL
+                <select value={permissionRoleName} onChange={e=>choosePermissionTarget(permissionChannelId,e.target.value)}><option value="">Bir rol seçin</option>{roles.map(r=><option key={r} value={r}>{r}</option>)}</select>
+              </label>
             </div>
-            <div className="notice"><Shield size={17}/><span>These are channel-specific role overrides. Other permission bits are preserved. Administrator permissions and Discord role hierarchy still apply.</span></div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(245px,1fr))',gap:12,marginTop:18}}>
-              {permissionBits.map(p=><button key={p.key} onClick={()=>setPermissionValues(old=>({...old,[p.key]:!old[p.key]}))} style={{display:'flex',alignItems:'center',gap:12,textAlign:'left',padding:15,borderRadius:12,border:'1px solid #30283b',background:permissionValues[p.key]?'rgba(145,91,220,.16)':'#15121b',color:'#eee',cursor:'pointer'}}><span style={{width:20,height:20,borderRadius:6,border:'1px solid #9c72dc',background:permissionValues[p.key]?'#9c72dc':'transparent',display:'grid',placeItems:'center'}}>{permissionValues[p.key]?'✓':''}</span><b style={{fontSize:13}}>{p.label}</b><span style={{marginLeft:'auto',fontSize:10,color:permissionValues[p.key]?'#c9a7ff':'#a39aaa'}}>{permissionValues[p.key]?'İZİN VER':'ENGELLE'}</span></button>)}
-            </div>
-            <div style={{display:'flex',justifyContent:'flex-end',marginTop:20}}><button className="primary-button" disabled={busy||!permissionChannelId||!selectedPermissionRoleId} onClick={savePermissions}>{busy?'Kaydediliyor…':'İzinleri kaydet'} <ShieldCheck size={16}/></button></div>
+            <div className="notice"><Shield size={18}/><span><b>Üç durumlu izin sistemi:</b> İzin ver, engelle veya varsayılanı kullan. Varsayılan seçeneği ilgili izni bu kategori/kanal için özel olarak tanımlamaz. Diğer izin bitleri korunur.</span></div>
+            {permissionChannelId && permissionRoleName ? <>
+              <div className="permission-legend"><span><i className="legend-allow"/> İzin ver</span><span><i className="legend-deny"/> Engelle</span><span><i className="legend-inherit"/> Varsayılan</span></div>
+              <div className="permission-grid">{permissionBits.map(p=>{
+                const state=permissionValues[p.key] || 'inherit';
+                const next=state==='inherit'?'allow':state==='allow'?'deny':'inherit';
+                return <button type="button" key={p.key} className={'permission-toggle state-'+state} onClick={()=>setPermissionValues(old=>({...old,[p.key]:next}))}>
+                  <span className="permission-check">{state==='allow'?'✓':state==='deny'?'×':'—'}</span><b>{p.label}</b><span className="permission-state">{state==='allow'?'İZİN VER':state==='deny'?'ENGELLE':'VARSAYILAN'}</span>
+                </button>;
+              })}</div>
+              <div className="inline-actions editor-actions"><button className="outline-button" onClick={()=>setPermissionValues(Object.fromEntries(permissionBits.map(p=>[p.key,'inherit'])))}>Tümünü varsayılana al</button><button className="primary-button" disabled={busy} onClick={savePermissions}>İzinleri kaydet <ShieldCheck size={16}/></button></div>
+              {categories.some(c=>c.id===permissionChannelId) && <div className="notice"><Folder size={17}/><span>Bu bir kategori. Kaydettikten sonra isterseniz kategori izinlerini altındaki tüm kanallara eşitlemek için Sunucu Yapısı bölümündeki kalkan düğmesini kullanabilirsiniz.</span></div>}
+            </> : <div className="empty-state compact"><LockKeyhole size={25}/><b>Önce hedef ve rol seçin</b><span>İzinleri görmek ve değiştirmek için yukarıdan kategori/kanal ile rol seçin.</span></div>}
           </>}
         </section>}
         {page === 'Templates' && <section className="panel manager-panel">
