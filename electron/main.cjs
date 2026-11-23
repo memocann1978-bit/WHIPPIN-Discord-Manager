@@ -44,6 +44,13 @@ function registerDiscordHandlers() {
     return discord('/guilds/' + guildId + '/channels', { method: 'POST', body: JSON.stringify(payload) });
   });
   ipcMain.handle('discord:delete-channel', async (_event, channelId) => discord('/channels/' + channelId, { method: 'DELETE' }));
+  ipcMain.handle('discord:set-channel-permissions', async (_event, { channelId, roleId, allow, deny }) => {
+    if (![channelId, roleId].every(value => typeof value === 'string' && /^\\d{17,20}$/.test(value))) throw new Error('Invalid channel or role ID.');
+    if (![allow, deny].every(value => typeof value === 'string' && /^\\d+$/.test(value))) throw new Error('Invalid permission bitfield.');
+    return discord('/channels/' + channelId + '/permissions/' + roleId, {
+      method: 'PUT', body: JSON.stringify({ type: 0, allow, deny })
+    });
+  });
   ipcMain.handle('discord:create-role', async (_event, { guildId, name, color }) => discord('/guilds/' + guildId + '/roles', { method: 'POST', body: JSON.stringify({ name, color: color || 0xA879F5 }) }));
   ipcMain.handle('discord:delete-role', async (_event, { guildId, roleId }) => discord('/guilds/' + guildId + '/roles/' + roleId, { method: 'DELETE' }));
   ipcMain.handle('discord:disconnect', async () => { if (fs.existsSync(credentialPath())) fs.unlinkSync(credentialPath()); return true; });
