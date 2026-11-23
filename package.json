@@ -28,9 +28,28 @@
   "build": {
     "appId": "gg.whippin.manager",
     "productName": "WHIPPIN",
-    "directories": { "output": "release" },
-    "files": ["dist/**/*", "electron/**/*", "package.json"],
-    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }] },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true }
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
   }
 }
