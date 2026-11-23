@@ -56,6 +56,19 @@ function registerDiscordHandlers() {
     for (const item of positions) if (!item || typeof item.id !== 'string' || !/^\\d{17,20}$/.test(item.id) || !Number.isInteger(item.position) || item.position < 0) throw new Error('Geçersiz kanal konumu.');
     return discord('/guilds/' + guildId + '/channels', { method: 'PATCH', body: JSON.stringify(positions) });
   });
+  ipcMain.handle('discord:sync-category-permissions', async (_event, categoryId) => {
+    if (typeof categoryId !== 'string' || !/^\\d{17,20}$/.test(categoryId)) throw new Error('Geçersiz kategori kimliği.');
+    const category = await discord('/channels/' + categoryId);
+    if (category.type !== 4) throw new Error('Seçilen öğe bir kategori değil.');
+    const channels = await discord('/guilds/' + category.guild_id + '/channels');
+    const children = channels.filter(channel => channel.parent_id === categoryId);
+    const results = { synced: 0, failed: [] };
+    for (const child of children) {
+      try { await discord('/channels/' + child.id, { method: 'PATCH', body: JSON.stringify({ permission_overwrites: category.permission_overwrites || [] }) }); results.synced++; }
+      catch (error) { results.failed.push({ id: child.id, message: error.message }); }
+    }
+    return results;
+  });
   ipcMain.handle('discord:set-role-permissions', async (_event, { guildId, roleId, permissions }) => {
     if (![guildId, roleId].every(value => typeof value === 'string' && /^\\d{17,20}$/.test(value)) || typeof permissions !== 'string' || !/^\\d+$/.test(permissions)) throw new Error('Geçersiz rol veya izin bilgisi.');
     return discord('/guilds/' + guildId + '/roles/' + roleId, { method: 'PATCH', body: JSON.stringify({ permissions }) });
