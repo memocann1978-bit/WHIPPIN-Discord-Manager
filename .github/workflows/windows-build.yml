@@ -28,6 +28,8 @@ jobs:
         run: npm install
       - name: Build Windows installer
         run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
@@ -35,15 +37,3 @@ jobs:
           path: release/*.exe
           if-no-files-found: error
           retention-days: 14
-      - name: Publish GitHub Release for in-app updates
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v0.2.0
-          name: WHIPPIN v0.2.0
-          target_commitish: ${{ github.sha }}
-          files: |
-            release/*.exe
-            release/latest.yml
-            release/*.blockmap
-          make_latest: true
-          fail_on_unmatched_files: true
