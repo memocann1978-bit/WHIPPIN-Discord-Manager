@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 
 type Page = 'Dashboard' | 'Server Structure' | 'Channels' | 'Roles' | 'Permissions' | 'Templates' | 'Bulk Actions' | 'Activity Logs' | 'Settings';
+const pageLabels: Record<Page, string> = { Dashboard: 'Genel Bakış', 'Server Structure': 'Sunucu Yapısı', Channels: 'Kanallar', Roles: 'Roller', Permissions: 'İzinler', Templates: 'Şablonlar', 'Bulk Actions': 'Toplu İşlemler', 'Activity Logs': 'İşlem Geçmişi', Settings: 'Ayarlar' };
 type Channel = { id?: string; name: string; type: 'text' | 'voice'; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[] };
 type Category = { id?: string; name: string; channels: Channel[] };
 type ActivityEntry = { id: number; action: string; detail: string; time: string; };
@@ -28,11 +29,11 @@ const serverTemplates: ServerTemplate[] = [
     { name: 'HANGOUT', channels: [{name:'general',type:'text'},{name:'voice-lounge',type:'voice'}] }
   ]}
 ];
-const permissionBits = [{key:'view',label:'View channel',bit:1024n},{key:'send',label:'Send messages',bit:2048n},{key:'manageMessages',label:'Manage messages',bit:8192n},{key:'manageChannels',label:'Manage channels',bit:16n},{key:'connect',label:'Connect to voice',bit:1048576n},{key:'speak',label:'Speak in voice',bit:2097152n}];
+const permissionBits = [{key:'view',label:'Kanalı görüntüle',bit:1024n},{key:'send',label:'Mesaj gönder',bit:2048n},{key:'manageMessages',label:'Mesajları yönet',bit:8192n},{key:'manageChannels',label:'Kanalları yönet',bit:16n},{key:'connect',label:'Ses kanalına bağlan',bit:1048576n},{key:'speak',label:'Sesli konuş',bit:2097152n}];
 const navigation: { group: string; items: { label: Page; icon: typeof LayoutDashboard }[] }[] = [
-  { group: 'WORKSPACE', items: [{ label: 'Dashboard', icon: LayoutDashboard }, { label: 'Server Structure', icon: Folder }, { label: 'Channels', icon: Hash }, { label: 'Roles', icon: ShieldCheck }, { label: 'Permissions', icon: LockKeyhole }] },
-  { group: 'MANAGEMENT', items: [{ label: 'Templates', icon: Blocks }, { label: 'Bulk Actions', icon: Zap }, { label: 'Activity Logs', icon: ClipboardList }] },
-  { group: 'PREFERENCES', items: [{ label: 'Settings', icon: Settings }] }
+  { group: 'ÇALIŞMA ALANI', items: [{ label: 'Dashboard', icon: LayoutDashboard }, { label: 'Server Structure', icon: Folder }, { label: 'Channels', icon: Hash }, { label: 'Roles', icon: ShieldCheck }, { label: 'Permissions', icon: LockKeyhole }] },
+  { group: 'YÖNETİM', items: [{ label: 'Templates', icon: Blocks }, { label: 'Bulk Actions', icon: Zap }, { label: 'Activity Logs', icon: ClipboardList }] },
+  { group: 'TERCİHLER', items: [{ label: 'Settings', icon: Settings }] }
 ];
 const initialCategories: Category[] = [
   { name: 'INFORMATION', channels: [{ name: 'welcome', type: 'text' }, { name: 'announcements', type: 'text' }, { name: 'rules', type: 'text' }] },
@@ -42,7 +43,7 @@ const initialCategories: Category[] = [
 function App() {
   const [page, setPage] = useState<Page>('Dashboard');
   const [serverId, setServerId] = useState('');
-  const [serverName, setServerName] = useState('Your Discord Server');
+  const [serverName, setServerName] = useState('Discord Sunucunuz');
   const [botToken, setBotToken] = useState('');
   const [connected, setConnected] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -69,9 +70,9 @@ function App() {
   const [updateVersion, setUpdateVersion] = useState('');
   const [updatePercent, setUpdatePercent] = useState(0);
   const [updateMessage, setUpdateMessage] = useState('');
-  const [lastUpdateCheck, setLastUpdateCheck] = useState('Not checked yet');
+  const [lastUpdateCheck, setLastUpdateCheck] = useState('Henüz kontrol edilmedi');
   useEffect(() => {
-    window.whippin.getAppVersion().then(setAppVersion).catch(() => setAppVersion('unknown'));
+    window.whippin.getAppVersion().then(setAppVersion).catch(() => setAppVersion('bilinmiyor'));
     return window.whippin.onUpdateStatus(event => {
       setUpdateStatus(event.status);
       if (event.status === 'checking') setLastUpdateCheck(new Date().toLocaleString());
@@ -83,7 +84,7 @@ function App() {
   const checkUpdates = async () => {
     setUpdateStatus('checking'); setUpdateMessage(''); setLastUpdateCheck(new Date().toLocaleString());
     try { const result = await window.whippin.checkForUpdates(); if (result.status === 'development') setUpdateStatus('development'); if (result.version) setUpdateVersion(result.version); }
-    catch (error) { setUpdateStatus('error'); setUpdateMessage(error instanceof Error ? error.message : 'Update check failed.'); }
+    catch (error) { setUpdateStatus('error'); setUpdateMessage(error instanceof Error ? error.message : 'Güncelleme kontrolü başarısız.'); }
   };
   const logActivity = (action: string, detail: string) => setActivityEntries(old => [{ id: Date.now() + Math.random(), action, detail, time: new Date().toLocaleString() }, ...old].slice(0, 100));
   const totalChannels = useMemo(() => categories.reduce((n, c) => n + c.channels.length, 0), [categories]);
@@ -97,7 +98,7 @@ function App() {
       channels: data.channels.filter(ch => ch.parent_id === cat.id && (ch.type === 0 || ch.type === 2)).sort((a,b) => a.position-b.position).map(ch => ({ id: ch.id, name: ch.name, type: ch.type === 2 ? 'voice' : 'text', permission_overwrites: ch.permission_overwrites }))
     }));
     const loose = data.channels.filter(ch => !ch.parent_id && ch.type !== 4 && (ch.type === 0 || ch.type === 2)).sort((a,b) => a.position-b.position);
-    if (loose.length) next.unshift({ name: 'UNCATEGORIZED', channels: loose.map(ch => ({ id: ch.id, name: ch.name, type: ch.type === 2 ? 'voice' : 'text', permission_overwrites: ch.permission_overwrites })) });
+    if (loose.length) next.unshift({ name: 'KATEGORİSİZ', channels: loose.map(ch => ({ id: ch.id, name: ch.name, type: ch.type === 2 ? 'voice' : 'text', permission_overwrites: ch.permission_overwrites })) });
     setCategories(next);
     setRoles(data.roles.slice().sort((a,b) => b.position-a.position).map(r => r.name));
     setRoleIds(Object.fromEntries(data.roles.map(r => [r.name,r.id])));
@@ -107,44 +108,44 @@ function App() {
   };
   const refreshStructure = async () => { const data = await window.whippin.getStructure(serverId); applyStructure(data); };
   const connectServer = async () => {
-    if (!serverId.trim() || !botToken.trim()) { notify('Enter both the bot token and server ID.'); return; }
+    if (!serverId.trim() || !botToken.trim()) { notify('Bot tokenini ve sunucu kimliğini girin.'); return; }
     setBusy(true);
-    try { const data = await window.whippin.connect({ token: botToken.trim(), guildId: serverId.trim() }); applyStructure(data); logActivity('Server connected', `Connected to ${data.guild.name}`); setBotToken(''); setModal(null); notify('Discord server connected successfully.'); }
-    catch (error) { notify(error instanceof Error ? error.message : 'Could not connect to Discord.'); }
+    try { const data = await window.whippin.connect({ token: botToken.trim(), guildId: serverId.trim() }); applyStructure(data); logActivity('Server connected', `Connected to ${data.guild.name}`); setBotToken(''); setModal(null); notify('Discord sunucusu başarıyla bağlandı.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Discord bağlantısı kurulamadı.'); }
     finally { setBusy(false); }
   };
   const addChannel = async () => {
     const enteredName = draft.trim();
     const name = channelType === 'voice' ? enteredName : enteredName.toLowerCase().replace(/\s+/g, '-');
     if (!name) return;
-    if (!connected) { notify('Connect your Discord bot first.'); return; }
+    if (!connected) { notify('Önce Discord botunuzu bağlayın.'); return; }
     setBusy(true);
-    try { await window.whippin.createChannel({ guildId: serverId, name, type: channelType }); await refreshStructure(); setDraft(''); setModal(null); logActivity('Channel created', `Created #${name}`); notify('Channel created on Discord.'); }
-    catch (error) { notify(error instanceof Error ? error.message : 'Channel could not be created.'); }
+    try { await window.whippin.createChannel({ guildId: serverId, name, type: channelType }); await refreshStructure(); setDraft(''); setModal(null); logActivity('Channel created', `Created #${name}`); notify('Kanal Discord üzerinde oluşturuldu.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Kanal oluşturulamadı.'); }
     finally { setBusy(false); }
   };
   const addCategory = async () => {
     const name = draft.trim();
     if (!name) return;
-    if (!connected) { notify('Connect your Discord bot first.'); return; }
+    if (!connected) { notify('Önce Discord botunuzu bağlayın.'); return; }
     setBusy(true);
-    try { await window.whippin.createChannel({ guildId: serverId, name, type: 'category' }); await refreshStructure(); setDraft(''); setModal(null); logActivity('Category created', `Created ${name} category`); notify('Category created on Discord.'); }
-    catch (error) { notify(error instanceof Error ? error.message : 'Category could not be created.'); }
+    try { await window.whippin.createChannel({ guildId: serverId, name, type: 'category' }); await refreshStructure(); setDraft(''); setModal(null); logActivity('Category created', `Created ${name} category`); notify('Kategori Discord üzerinde oluşturuldu.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Kategori oluşturulamadı.'); }
     finally { setBusy(false); }
   };
   const addRole = async () => {
     const name = draft.trim();
     if (!name) return;
-    if (!connected) { notify('Connect your Discord bot first.'); return; }
+    if (!connected) { notify('Önce Discord botunuzu bağlayın.'); return; }
     setBusy(true);
-    try { await window.whippin.createRole({ guildId: serverId, name }); await refreshStructure(); setDraft(''); setModal(null); logActivity('Role created', `Created role ${name}`); notify('Role created on Discord.'); }
-    catch (error) { notify(error instanceof Error ? error.message : 'Role could not be created.'); }
+    try { await window.whippin.createRole({ guildId: serverId, name }); await refreshStructure(); setDraft(''); setModal(null); logActivity('Role created', `Created role ${name}`); notify('Rol Discord üzerinde oluşturuldu.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Rol oluşturulamadı.'); }
     finally { setBusy(false); }
   };
   const removeChannel = async (categoryName: string, channel: Channel) => {
     if (!channel.id) return;
     setBusy(true);
-    try { await window.whippin.deleteChannel(channel.id); await refreshStructure(); logActivity('Channel deleted', `Deleted #${channel.name}`); notify('Channel deleted from Discord.'); }
+    try { await window.whippin.deleteChannel(channel.id); await refreshStructure(); logActivity('Channel deleted', `Deleted #${channel.name}`); notify('Kanal Discord üzerinden silindi.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Channel could not be deleted.'); }
     finally { setBusy(false); }
   };
@@ -152,12 +153,12 @@ function App() {
     const roleId = roleIds[name];
     if (!roleId || name === '@everyone') return;
     setBusy(true);
-    try { await window.whippin.deleteRole({ guildId: serverId, roleId }); await refreshStructure(); logActivity('Role deleted', `Deleted role ${name}`); notify('Role deleted from Discord.'); }
+    try { await window.whippin.deleteRole({ guildId: serverId, roleId }); await refreshStructure(); logActivity('Role deleted', `Deleted role ${name}`); notify('Rol Discord üzerinden silindi.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Role could not be deleted.'); }
     finally { setBusy(false); }
   };
   const applyTemplate = async (template: ServerTemplate) => {
-    if (!connected) return notify('Connect your Discord bot first.');
+    if (!connected) return notify('Önce Discord botunuzu bağlayın.');
     const channelCount = template.categories.reduce((n, category) => n + category.channels.length, 0);
     if (!window.confirm(`Apply "${template.name}"? This will create ${template.categories.length} categories and ${channelCount} channels on your live Discord server. Existing channels will not be changed.`)) return;
     setBusy(true);
@@ -181,8 +182,8 @@ function App() {
     } finally { setBusy(false); }
   };
   const runBulkAction = async (action: 'delete' | 'update') => {
-    if (!connected) return notify('Connect your Discord bot first.');
-    if (!bulkSelected.length) return notify('Select at least one channel.');
+    if (!connected) return notify('Önce Discord botunuzu bağlayın.');
+    if (!bulkSelected.length) return notify('En az bir kanal seçin.');
     if (action === 'delete' && !window.confirm(`Delete ${bulkSelected.length} selected channels from Discord? This cannot be undone.`)) return;
     setBusy(true);
     try {
@@ -198,40 +199,40 @@ function App() {
     setPermissionValues(Object.fromEntries(permissionBits.map(p => [p.key, (allow & p.bit) !== 0n && (deny & p.bit) === 0n])));
   };
   const savePermissions = async () => {
-    if (!permissionChannelId || !selectedPermissionRoleId) return notify('Select a channel and role first.');
+    if (!permissionChannelId || !selectedPermissionRoleId) return notify('Önce bir kanal ve rol seçin.');
     const channel = allChannels.find(ch => ch.id === permissionChannelId) as (Channel & { permission_overwrites?: { id: string; allow: string; deny: string }[] }) | undefined;
     const existing = channel?.permission_overwrites?.find(o => o.id === selectedPermissionRoleId);
     const mask = permissionBits.reduce((m,p) => m | p.bit, 0n); let allow = BigInt(existing?.allow || '0') & ~mask; let deny = BigInt(existing?.deny || '0') & ~mask;
     for (const p of permissionBits) { if (permissionValues[p.key]) allow |= p.bit; else deny |= p.bit; }
-    setBusy(true); try { await window.whippin.setChannelPermissions({channelId:permissionChannelId,roleId:selectedPermissionRoleId,allow:allow.toString(),deny:deny.toString()}); await refreshStructure(); logActivity('Permissions updated', `Updated ${permissionRoleName} overrides on #${channel?.name || permissionChannelId}`); notify('Channel permissions saved to Discord.'); }
+    setBusy(true); try { await window.whippin.setChannelPermissions({channelId:permissionChannelId,roleId:selectedPermissionRoleId,allow:allow.toString(),deny:deny.toString()}); await refreshStructure(); logActivity('Permissions updated', `Updated ${permissionRoleName} overrides on #${channel?.name || permissionChannelId}`); notify('Kanal izinleri Discord üzerine kaydedildi.'); }
     catch (error) { notify(error instanceof Error ? error.message : 'Permissions could not be saved.'); } finally { setBusy(false); }
   };
   const visibleCategories = categories.map(c => ({ ...c, channels: c.channels.filter(ch => ch.name.toLowerCase().includes(query.toLowerCase())) })).filter(c => c.name.toLowerCase().includes(query.toLowerCase()) || c.channels.length);
   const openModal = (kind: typeof modal) => { setDraft(''); setModal(kind); };
-  const title = page === 'Server Structure' ? 'Server Structure' : page;
+  const title = pageLabels[page];
   return <div className="app-shell">
     <aside className={`sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
-      <div className="brand-row"><div className="brand-mark"><span>W</span></div><div className="brand-name">WHIPPIN<span>.</span><small>DISCORD MANAGER</small></div><button className="icon-button collapse-btn" onClick={() => setSidebarOpen(false)} title="Collapse sidebar"><ChevronLeft size={17}/></button></div>
-      <button className="server-switch" onClick={() => openModal('server')}><div className="server-avatar"><Server size={17}/></div><span><b>{connected ? serverName : 'Select a server'}</b><small>{connected ? 'Server workspace' : 'No server connected'}</small></span><ChevronDown size={16}/></button>
-      <div className="nav-scroll">{navigation.map(group => <div className="nav-group" key={group.group}><div className="nav-label">{group.group}</div>{group.items.map(item => { const Icon = item.icon; return <button key={item.label} onClick={() => setPage(item.label)} className={`nav-item ${page === item.label ? 'active' : ''}`}><Icon size={17}/><span>{item.label}</span>{item.label === 'Activity Logs' && <i className="nav-dot"/>}</button>; })}</div>)}</div>
-      <div className="sidebar-bottom"><div className="connection-mini"><span className={connected ? 'status-dot online' : 'status-dot'}/><div><b>{connected ? 'Workspace ready' : 'Not connected'}</b><small>{connected ? 'Discord bot connection' : 'Connect a Discord bot'}</small></div><button className="icon-button" onClick={() => openModal('server')}><ArrowDownUp size={15}/></button></div><div className="user-row"><div className="user-avatar">W</div><div><b>WHIPPIN Workspace</b><small>Personal edition</small></div><button className="icon-button" onClick={() => setPage('Settings')}><Settings size={16}/></button></div></div>
+      <div className="brand-row"><div className="brand-mark"><span>W</span></div><div className="brand-name">WHIPPIN<span>.</span><small>DISCORD MANAGER</small></div><button className="icon-button collapse-btn" onClick={() => setSidebarOpen(false)} title="Kenar çubuğunu daralt"><ChevronLeft size={17}/></button></div>
+      <button className="server-switch" onClick={() => openModal('server')}><div className="server-avatar"><Server size={17}/></div><span><b>{connected ? serverName : 'Sunucu seç'}</b><small>{connected ? 'Sunucu çalışma alanı' : 'Bağlı sunucu yok'}</small></span><ChevronDown size={16}/></button>
+      <div className="nav-scroll">{navigation.map(group => <div className="nav-group" key={group.group}><div className="nav-label">{group.group}</div>{group.items.map(item => { const Icon = item.icon; return <button key={item.label} onClick={() => setPage(item.label)} className={`nav-item ${page === item.label ? 'active' : ''}`}><Icon size={17}/><span>{pageLabels[item.label]}</span>{item.label === 'Activity Logs' && <i className="nav-dot"/>}</button>; })}</div>)}</div>
+      <div className="sidebar-bottom"><div className="connection-mini"><span className={connected ? 'status-dot online' : 'status-dot'}/><div><b>{connected ? 'Çalışma alanı hazır' : 'Bağlı değil'}</b><small>{connected ? 'Discord bot bağlantısı' : 'Discord botu bağla'}</small></div><button className="icon-button" onClick={() => openModal('server')}><ArrowDownUp size={15}/></button></div><div className="user-row"><div className="user-avatar">W</div><div><b>WHIPPIN Workspace</b><small>Personal edition</small></div><button className="icon-button" onClick={() => setPage('Settings')}><Settings size={16}/></button></div></div>
     </aside>
     {!sidebarOpen && <button className="reopen-sidebar" onClick={() => setSidebarOpen(true)}><Menu size={18}/></button>}
     <main className="main-area">
-      <header className="topbar"><div className="breadcrumbs"><span>WHIPPIN</span><ChevronRight size={14}/><b>{page}</b></div><div className="top-actions"><label className="global-search"><Search size={16}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search modules..." /><kbd>CTRL K</kbd></label><span className={connected ? 'top-status online' : 'top-status'} title={connected ? 'Connected' : 'Offline'}/><button className="support-button" onClick={() => notify('Help center will be available in a future update.')}><CircleHelp size={16}/> Support</button><button className="icon-button notification" onClick={() => notify('You are all caught up.')}><Bell size={17}/><i/></button><button className="profile-chip" onClick={() => setPage('Settings')}>W<ChevronDown size={14}/></button></div></header>
+      <header className="topbar"><div className="breadcrumbs"><span>WHIPPIN</span><ChevronRight size={14}/><b>{pageLabels[page]}</b></div><div className="top-actions"><label className="global-search"><Search size={16}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Modüllerde ara..." /><kbd>CTRL K</kbd></label><span className={connected ? 'top-status online' : 'top-status'} title={connected ? 'Bağlandı' : 'Çevrimdışı'}/><button className="support-button" onClick={() => notify('Yardım merkezi sonraki güncellemede sunulacak.')}><CircleHelp size={16}/> Destek</button><button className="icon-button notification" onClick={() => notify('Yeni bildiriminiz yok.')}><Bell size={17}/><i/></button><button className="profile-chip" onClick={() => setPage('Settings')}>W<ChevronDown size={14}/></button></div></header>
       <div className="content-scroll">
-        <section className="welcome-row"><div><div className="eyebrow"><Sparkles size={13}/> SERVER CONTROL CENTER</div><h1>{page === 'Dashboard' ? 'Welcome to WHIPPIN.' : title}</h1><p>{page === 'Dashboard' ? 'Your server. Your structure. Completely under control.' : page === 'Server Structure' ? 'Explore and organize every category and channel in one place.' : `Manage your Discord server ${page.toLowerCase()} from one workspace.`}</p></div><button className="primary-button" onClick={() => openModal('server')}><Plus size={16}/> {connected ? 'Switch server' : 'Connect server'}</button></section>
+        <section className="welcome-row"><div><div className="eyebrow"><Sparkles size={13}/> SERVER CONTROL CENTER</div><h1>{page === 'Dashboard' ? 'Welcome to WHIPPIN.' : title}</h1><p>{page === 'Dashboard' ? 'Your server. Your structure. Completely under control.' : page === 'Server Structure' ? 'Explore and organize every category and channel in one place.' : `Manage your Discord server ${page.toLowerCase()} from one workspace.`}</p></div><button className="primary-button" onClick={() => openModal('server')}><Plus size={16}/> {connected ? 'Sunucu değiştir' : 'Connect server'}</button></section>
         {page === 'Dashboard' && <>
           <section className="server-banner"><div className="server-emblem"><Bot size={25}/></div><div className="server-meta"><h2>{connected ? serverName : 'Your server workspace'}</h2><span><i className={connected ? 'status-dot online' : 'status-dot'}/>{connected ? 'BOT CONNECTION READY' : 'WAITING FOR CONNECTION'}</span></div><div className="banner-spacer"/><div className="banner-pill"><Users size={17}/><b>—</b><small>MEMBERS</small></div><div className="banner-pill"><Crown size={17}/><b>—</b><small>YOUR ROLE</small></div></section>
           <div className="section-heading"><div><h3>SERVER OVERVIEW</h3><p>A quick look at your server structure</p></div><button className="subtle-button" onClick={async () => { if(!connected) return notify('Connect a server first.'); try { await refreshStructure(); notify('Server data synchronized.'); } catch(e) { notify(e instanceof Error ? e.message : 'Sync failed.'); } }}><Activity size={15}/> Refresh</button></div>
-          <section className="stats-grid">{[{label:'TOTAL CHANNELS',value:connected ? totalChannels : '—',icon:MessageSquare,change:'Text & voice channels'},{label:'CATEGORIES',value:connected ? categories.length : '—',icon:Folder,change:'Organized sections'},{label:'SERVER ROLES',value:connected ? roles.length : '—',icon:Shield,change:'Including @everyone'},{label:'BOT STATUS',value:connected ? 'Ready' : 'Offline',icon:Wifi,change:connected ? 'Connection established' : 'Connect to get started',status:true}].map((s,i)=>{const Icon=s.icon;return <article className="stat-card" key={s.label}><div className="stat-top"><span>{s.label}</span><div className="stat-icon"><Icon size={17}/></div></div><strong className={s.status && connected ? 'success-text' : ''}>{s.value}</strong><small>{s.change}</small></article>})}</section>
+          <section className="stats-grid">{[{label:'TOTAL CHANNELS',value:connected ? totalChannels : '—',icon:MessageSquare,change:'Text & voice channels'},{label:'CATEGORIES',value:connected ? categories.length : '—',icon:Folder,change:'Organized sections'},{label:'SERVER ROLES',value:connected ? roles.length : '—',icon:Shield,change:'Including @everyone'},{label:'BOT STATUS',value:connected ? 'Ready' : 'Çevrimdışı',icon:Wifi,change:connected ? 'Connection established' : 'Connect to get started',status:true}].map((s,i)=>{const Icon=s.icon;return <article className="stat-card" key={s.label}><div className="stat-top"><span>{s.label}</span><div className="stat-icon"><Icon size={17}/></div></div><strong className={s.status && connected ? 'success-text' : ''}>{s.value}</strong><small>{s.change}</small></article>})}</section>
           <section className="dashboard-grid"><article className="panel structure-panel"><div className="panel-heading"><div><h3>SERVER STRUCTURE</h3><p>Categories and channels preview</p></div><button className="text-button" onClick={() => setPage('Server Structure')}>View all <ChevronRight size={14}/></button></div>{connected ? <div className="structure-preview">{categories.slice(0,3).map(c=><div className="preview-category" key={c.id || c.name}><div className="preview-cat-name"><Folder size={14}/>{c.name}<span>{c.channels.length}</span></div>{c.channels.slice(0,3).map(ch=><div className="preview-channel" key={ch.id || ch.name}>{ch.type === 'voice' ? <Headphones size={14}/> : <Hash size={14}/>} {ch.name}</div>)}</div>)}</div> : <div className="empty-state"><div className="empty-icon"><Server size={23}/></div><b>Your server will appear here</b><span>Connect a Discord bot to load your real server structure.</span><button className="outline-button" onClick={() => openModal('server')}>Connect Discord server</button></div>}</article>
             <article className="panel quick-panel"><div className="panel-heading"><div><h3>QUICK ACTIONS</h3><p>Jump straight into management</p></div><Zap size={17} className="muted-icon"/></div><div className="quick-list"><button onClick={() => openModal('channel')}><div className="quick-icon"><Hash size={17}/></div><span><b>Create channel</b><small>Add a new text or voice channel</small></span><ChevronRight size={16}/></button><button onClick={() => openModal('category')}><div className="quick-icon"><Folder size={17}/></div><span><b>Create category</b><small>Organize your server layout</small></span><ChevronRight size={16}/></button><button onClick={() => openModal('role')}><div className="quick-icon"><Shield size={17}/></div><span><b>Create role</b><small>Set up a new server role</small></span><ChevronRight size={16}/></button><button onClick={() => setPage('Permissions')}><div className="quick-icon"><LockKeyhole size={17}/></div><span><b>Manage permissions</b><small>Configure role and channel access</small></span><ChevronRight size={16}/></button></div></article></section>
           <section className="panel activity-panel"><div className="panel-heading"><div><h3>RECENT ACTIVITY</h3><p>Your latest workspace actions</p></div><button className="text-button" onClick={() => setPage('Activity Logs')}>Activity log <ChevronRight size={14}/></button></div><div className="activity-empty"><Clock3 size={17}/> Activity history will be added in a future update.</div></section>
         </>}
         {page === 'Server Structure' && <section className="panel manager-panel"><div className="panel-heading"><div><h3>STRUCTURE EXPLORER</h3><p>Manage your categories and channels</p></div><div className="inline-actions"><button className="outline-button" onClick={() => openModal('category')}><Plus size={15}/> Category</button><button className="primary-button small" onClick={() => openModal('channel')}><Plus size={15}/> Channel</button></div></div>{!connected && <div className="notice"><Shield size={17}/><span><b>Preview mode</b> — Connect your Discord bot to load and edit your actual server.</span></div>}{visibleCategories.map(c=><div className="manager-category" key={c.id || c.name}><div className="manager-category-title"><Folder size={16}/><b>{c.name}</b><span>{c.channels.length} CHANNELS</span><button className="icon-button" onClick={() => notify('Category editing is not available yet.')}><Settings size={15}/></button></div>{c.channels.map(ch=><div className="manager-channel" key={ch.id || ch.name}><div>{ch.type === 'voice' ? <Headphones size={16}/> : <Hash size={16}/>}<span>{ch.name}</span><small>{ch.type.toUpperCase()}</small></div><button className="icon-button" onClick={() => connected ? removeChannel(c.name,ch) : notify('Connect your bot to make changes on Discord.')} title="Remove channel" disabled={busy}><X size={15}/></button></div>)}</div>)}</section>}
         {page === 'Channels' && <section className="panel manager-panel"><div className="panel-heading"><div><h3>CHANNEL MANAGER</h3><p>Create, organize and configure server channels</p></div><button className="primary-button small" onClick={() => openModal('channel')}><Plus size={15}/> New channel</button></div><div className="empty-state compact"><Hash size={25}/><b>Channel management workspace</b><span>Use Server Structure to browse and manage live channels.</span><button className="outline-button" onClick={() => setPage('Server Structure')}>Open structure explorer</button></div></section>}
-        {page === 'Roles' && <section className="panel manager-panel"><div className="panel-heading"><div><h3>ROLE MANAGER</h3><p>Manage server roles and hierarchy</p></div><button className="primary-button small" onClick={() => openModal('role')}><Plus size={15}/> New role</button></div>{!connected && <div className="notice"><Shield size={17}/> Preview mode — sample roles are shown below.</div>}<div className="role-list">{roles.map((r,i)=><div className="role-row" key={roleIds[r] || r}><div className="role-color" style={{background:['#bd8cff','#f0b45f','#65a8e8','#65c7a2','#777181'][i%5]}}/><b>{r}</b><span>{i===0?'HIGHEST':r==='@everyone'?'DEFAULT':'ROLE'}</span>{connected && r !== '@everyone' && <button className="icon-button" onClick={() => removeRole(r)} title="Delete role" disabled={busy}><X size={15}/></button>}</div>)}</div></section>}
+        {page === 'Roles' && <section className="panel manager-panel"><div className="panel-heading"><div><h3>ROLE MANAGER</h3><p>Manage server roles and hierarchy</p></div><button className="primary-button small" onClick={() => openModal('role')}><Plus size={15}/> New role</button></div>{!connected && <div className="notice"><Shield size={17}/> Preview mode — sample roles are shown below.</div>}<div className="role-list">{roles.map((r,i)=><div className="role-row" key={roleIds[r] || r}><div className="role-color" style={{background:['#bd8cff','#f0b45f','#65a8e8','#65c7a2','#777181'][i%5]}}/><b>{r}</b><span>{i===0?'HIGHEST':r==='@everyone'?'DEFAULT':'ROL'}</span>{connected && r !== '@everyone' && <button className="icon-button" onClick={() => removeRole(r)} title="Delete role" disabled={busy}><X size={15}/></button>}</div>)}</div></section>}
 
         {page === 'Permissions' && <section className="panel manager-panel">
           <div className="panel-heading"><div><h3>CHANNEL PERMISSION EDITOR</h3><p>Configure channel access for each server role</p></div></div>
@@ -242,9 +243,9 @@ function App() {
             </div>
             <div className="notice"><Shield size={17}/><span>These are channel-specific role overrides. Other permission bits are preserved. Administrator permissions and Discord role hierarchy still apply.</span></div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(245px,1fr))',gap:12,marginTop:18}}>
-              {permissionBits.map(p=><button key={p.key} onClick={()=>setPermissionValues(old=>({...old,[p.key]:!old[p.key]}))} style={{display:'flex',alignItems:'center',gap:12,textAlign:'left',padding:15,borderRadius:12,border:'1px solid #30283b',background:permissionValues[p.key]?'rgba(145,91,220,.16)':'#15121b',color:'#eee',cursor:'pointer'}}><span style={{width:20,height:20,borderRadius:6,border:'1px solid #9c72dc',background:permissionValues[p.key]?'#9c72dc':'transparent',display:'grid',placeItems:'center'}}>{permissionValues[p.key]?'✓':''}</span><b style={{fontSize:13}}>{p.label}</b><span style={{marginLeft:'auto',fontSize:10,color:permissionValues[p.key]?'#c9a7ff':'#a39aaa'}}>{permissionValues[p.key]?'ALLOW':'DENY'}</span></button>)}
+              {permissionBits.map(p=><button key={p.key} onClick={()=>setPermissionValues(old=>({...old,[p.key]:!old[p.key]}))} style={{display:'flex',alignItems:'center',gap:12,textAlign:'left',padding:15,borderRadius:12,border:'1px solid #30283b',background:permissionValues[p.key]?'rgba(145,91,220,.16)':'#15121b',color:'#eee',cursor:'pointer'}}><span style={{width:20,height:20,borderRadius:6,border:'1px solid #9c72dc',background:permissionValues[p.key]?'#9c72dc':'transparent',display:'grid',placeItems:'center'}}>{permissionValues[p.key]?'✓':''}</span><b style={{fontSize:13}}>{p.label}</b><span style={{marginLeft:'auto',fontSize:10,color:permissionValues[p.key]?'#c9a7ff':'#a39aaa'}}>{permissionValues[p.key]?'İZİN VER':'ENGELLE'}</span></button>)}
             </div>
-            <div style={{display:'flex',justifyContent:'flex-end',marginTop:20}}><button className="primary-button" disabled={busy||!permissionChannelId||!selectedPermissionRoleId} onClick={savePermissions}>{busy?'Saving…':'Save permission overrides'} <ShieldCheck size={16}/></button></div>
+            <div style={{display:'flex',justifyContent:'flex-end',marginTop:20}}><button className="primary-button" disabled={busy||!permissionChannelId||!selectedPermissionRoleId} onClick={savePermissions}>{busy?'Kaydediliyor…':'İzinleri kaydet'} <ShieldCheck size={16}/></button></div>
           </>}
         </section>}
         {page === 'Templates' && <section className="panel manager-panel">
@@ -256,7 +257,7 @@ function App() {
               <h3 style={{fontFamily:'Space Grotesk',fontSize:15,margin:'15px 0 6px'}}>{template.name}</h3>
               <p style={{fontSize:10,color:'#92899d',lineHeight:1.6,minHeight:34,margin:0}}>{template.description}</p>
               <div style={{display:'flex',gap:7,flexWrap:'wrap',margin:'13px 0',fontSize:9,color:'#bca1df'}}><span>{template.categories.length} categories</span><span>·</span><span>{template.categories.reduce((n,c)=>n+c.channels.length,0)} channels</span></div>
-              <button className="primary-button small" style={{marginTop:'auto'}} disabled={busy||!connected} onClick={()=>applyTemplate(template)}>{busy?'Applying…':'Apply template'} <ChevronRight size={14}/></button>
+              <button className="primary-button small" style={{marginTop:'auto'}} disabled={busy||!connected} onClick={()=>applyTemplate(template)}>{busy?'Uygulanıyor…':'Şablonu uygula'} <ChevronRight size={14}/></button>
             </article>)}
           </div>
           {!connected && <div className="empty-state compact"><Server size={24}/><b>Connect your server to apply templates</b><span>Presets can be previewed here, but changes require an official bot connection.</span><button className="outline-button" onClick={()=>openModal('server')}>Connect Discord</button></div>}
@@ -270,9 +271,9 @@ function App() {
           <div className="panel-heading"><div><h3>APPLICATION SETTINGS</h3><p>Manage WHIPPIN updates and application information</p></div><span className="coming-badge">VERSION {appVersion}</span></div>
           <div className="manager-category" style={{padding:18}}>
             <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}><div className="stat-icon" style={{width:42,height:42}}><Zap size={20}/></div><div><b style={{fontSize:13}}>WHIPPIN Auto Update</b><div style={{fontSize:10,color:'#91889d',marginTop:4}}>Check GitHub for the latest official version and install it without downloading an installer manually.</div></div></div>
-            <div className="detail-line"><span>Installed version</span><b>v{appVersion}</b></div><div className="detail-line"><span>Latest version</span><b>{updateVersion ? `v${updateVersion}` : 'Not checked yet'}</b></div><div className="detail-line"><span>Last check</span><b>{lastUpdateCheck}</b></div>
+            <div className="detail-line"><span>Installed version</span><b>v{appVersion}</b></div><div className="detail-line"><span>Latest version</span><b>{updateVersion ? `v${updateVersion}` : 'Henüz kontrol edilmedi'}</b></div><div className="detail-line"><span>Last check</span><b>{lastUpdateCheck}</b></div>
             {updateStatus === 'downloading' && <div style={{marginTop:16}}><div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#cbb6e6',marginBottom:7}}><span>Downloading update…</span><b>{updatePercent}%</b></div><div style={{height:7,background:'#292231',borderRadius:8,overflow:'hidden'}}><div style={{height:'100%',width:`${updatePercent}%`,background:'linear-gradient(90deg,#8050bd,#c49aff)',transition:'width .2s'}}/></div></div>}
-            <div className="notice" style={{marginTop:16}}><Shield size={16}/><span>{updateStatus === 'checking' ? 'Checking GitHub Releases…' : updateStatus === 'available' ? `Version ${updateVersion} found. It is downloading automatically.` : updateStatus === 'downloading' ? 'The update is downloading in the background. You can keep using WHIPPIN.' : updateStatus === 'downloaded' ? `Version ${updateVersion} is ready. Restart WHIPPIN to install it.` : updateStatus === 'not-available' ? 'You are using the latest version of WHIPPIN.' : updateStatus === 'development' ? 'Update checks are available in the installed Windows version.' : updateStatus === 'error' ? `Update error: ${updateMessage}` : 'Automatic checks run when WHIPPIN starts and every 6 hours. Updates come from official WHIPPIN GitHub Releases.'}</span></div>
+            <div className="notice" style={{marginTop:16}}><Shield size={16}/><span>{updateStatus === 'checking' ? 'GitHub sürümleri kontrol ediliyor…' : updateStatus === 'available' ? `Version ${updateVersion} found. It is downloading automatically.` : updateStatus === 'downloading' ? 'Güncelleme arka planda indiriliyor. WHIPPIN’i kullanmaya devam edebilirsiniz.' : updateStatus === 'downloaded' ? `Version ${updateVersion} is ready. Restart WHIPPIN to install it.` : updateStatus === 'not-available' ? 'WHIPPIN’in en güncel sürümünü kullanıyorsunuz.' : updateStatus === 'development' ? 'Güncelleme kontrolü kurulu Windows sürümünde kullanılabilir.' : updateStatus === 'error' ? `Update error: ${updateMessage}` : 'Otomatik kontroller WHIPPIN açıldığında ve her 6 saatte bir yapılır. Güncellemeler resmi WHIPPIN GitHub sürümlerinden alınır.'}</span></div>
             <div className="inline-actions" style={{justifyContent:'flex-end',marginTop:16}}><button className="outline-button" disabled={updateStatus === 'checking' || updateStatus === 'downloading'} onClick={checkUpdates}><Activity size={14}/> Check for updates</button>{updateStatus === 'downloaded' && <button className="primary-button" onClick={() => window.whippin.installUpdate()}>Restart & install <ChevronRight size={15}/></button>}</div>
           </div><div className="notice"><LockKeyhole size={16}/><span>Only updates published by the official WHIPPIN repository are checked. Your Discord bot token remains stored locally in Windows secure storage.</span></div>
         </section>}
@@ -287,16 +288,16 @@ function App() {
               <label className="field-label">RENAME SUFFIX<input value={bulkSuffix} onChange={e=>setBulkSuffix(e.target.value)} placeholder="e.g. -2026"/></label>
             </div>
             <div className="notice"><Shield size={16}/><span>Operations affect real Discord channels. Failed items are reported separately; bulk delete cannot be undone.</span></div>
-            <div className="inline-actions" style={{justifyContent:'flex-end',marginTop:16}}><button className="outline-button" disabled={busy||!bulkSelected.length} onClick={()=>runBulkAction('delete')} style={{color:'#ff9b9b',borderColor:'#704044'}}>Delete selected</button><button className="primary-button" disabled={busy||!bulkSelected.length||(!bulkCategory&&!bulkPrefix&&!bulkSuffix)} onClick={()=>runBulkAction('update')}>{busy?'Applying…':'Apply move / rename'} <Zap size={15}/></button></div>
+            <div className="inline-actions" style={{justifyContent:'flex-end',marginTop:16}}><button className="outline-button" disabled={busy||!bulkSelected.length} onClick={()=>runBulkAction('delete')} style={{color:'#ff9b9b',borderColor:'#704044'}}>Delete selected</button><button className="primary-button" disabled={busy||!bulkSelected.length||(!bulkCategory&&!bulkPrefix&&!bulkSuffix)} onClick={()=>runBulkAction('update')}>{busy?'Uygulanıyor…':'Taşıma / yeniden adlandırmayı uygula'} <Zap size={15}/></button></div>
           </>}
         </section>}
         {page !== 'Dashboard' && page !== 'Server Structure' && page !== 'Channels' && page !== 'Roles' && page !== 'Permissions' && page !== 'Bulk Actions' && page !== 'Activity Logs' && page !== 'Templates' && page !== 'Settings' && <section className="panel coming-panel"><div className="coming-icon"><Command size={27}/></div><div className="eyebrow">WHIPPIN MODULE</div><h2>{page}</h2><p>This workspace is mapped out and ready for its feature implementation.</p><span className="coming-badge"><Sparkles size={13}/> Coming in the next development phase</span></section>}
         <footer className="app-footer"><span>WHIPPIN <b>v{appVersion}</b></span><span>BUILT FOR SERVER OWNERS <i/> SECURE BY DESIGN</span></footer>
       </div>
     </main>
-    {rightOpen && <aside className="right-panel"><div className="right-header"><div><span className="eyebrow">LIVE WORKSPACE</span><h3>SERVER DETAILS</h3></div><button className="icon-button" onClick={() => setRightOpen(false)}><X size={16}/></button></div><div className="right-server-card"><div className="right-server-icon"><Server size={23}/></div><b>{connected ? serverName : 'No server selected'}</b><small>{connected ? serverId : 'Connect a server to begin'}</small><span className={connected ? 'connection-label online-label' : 'connection-label'}><i/> {connected ? 'BOT READY' : 'DISCONNECTED'}</span></div><div className="right-section-title">CONNECTION</div><div className="detail-line"><span>Bot status</span><b className={connected ? 'success-text' : ''}>{connected ? 'Connected' : 'Offline'}</b></div><div className="detail-line"><span>Gateway</span><b>Discord API</b></div><div className="detail-line"><span>Last sync</span><b>{connected ? 'Live sync' : '—'}</b></div><div className="right-section-title">QUICK STATS</div><div className="right-stat"><span><Hash size={14}/> Channels</span><b>{connected ? totalChannels : '—'}</b></div><div className="right-stat"><span><Folder size={14}/> Categories</span><b>{connected ? categories.length : '—'}</b></div><div className="right-stat"><span><Shield size={14}/> Roles</span><b>{connected ? roles.length : '—'}</b></div><div className="right-bottom"><div className="secure-note"><LockKeyhole size={15}/><span><b>Secure workspace</b><small>Official Discord bot integration. No user-token login.</small></span></div><button className="right-connect" onClick={() => openModal('server')}>{connected ? 'Switch server' : 'Connect Discord'} <ChevronRight size={15}/></button></div></aside>}
+    {rightOpen && <aside className="right-panel"><div className="right-header"><div><span className="eyebrow">LIVE WORKSPACE</span><h3>SERVER DETAILS</h3></div><button className="icon-button" onClick={() => setRightOpen(false)}><X size={16}/></button></div><div className="right-server-card"><div className="right-server-icon"><Server size={23}/></div><b>{connected ? serverName : 'Sunucu seçilmedi'}</b><small>{connected ? serverId : 'Başlamak için sunucu bağlayın'}</small><span className={connected ? 'connection-label online-label' : 'connection-label'}><i/> {connected ? 'BOT HAZIR' : 'BAĞLANTI YOK'}</span></div><div className="right-section-title">CONNECTION</div><div className="detail-line"><span>Bot status</span><b className={connected ? 'success-text' : ''}>{connected ? 'Bağlandı' : 'Çevrimdışı'}</b></div><div className="detail-line"><span>Gateway</span><b>Discord API</b></div><div className="detail-line"><span>Last sync</span><b>{connected ? 'Canlı eşitleme' : '—'}</b></div><div className="right-section-title">QUICK STATS</div><div className="right-stat"><span><Hash size={14}/> Channels</span><b>{connected ? totalChannels : '—'}</b></div><div className="right-stat"><span><Folder size={14}/> Categories</span><b>{connected ? categories.length : '—'}</b></div><div className="right-stat"><span><Shield size={14}/> Roles</span><b>{connected ? roles.length : '—'}</b></div><div className="right-bottom"><div className="secure-note"><LockKeyhole size={15}/><span><b>Secure workspace</b><small>Official Discord bot integration. No user-token login.</small></span></div><button className="right-connect" onClick={() => openModal('server')}>{connected ? 'Sunucu değiştir' : 'Discord’u bağla'} <ChevronRight size={15}/></button></div></aside>}
     {!rightOpen && <button className="right-reopen" onClick={() => setRightOpen(true)}><ChevronLeft size={16}/></button>}
-    {modal && <div className="modal-backdrop" onMouseDown={e => {if(e.target===e.currentTarget)setModal(null)}}><div className="modal-card"><div className="modal-top"><div><span className="eyebrow">WHIPPIN WORKSPACE</span><h2>{modal==='server'?'Connect Discord server':modal==='channel'?'Create channel':modal==='category'?'Create category':'Create role'}</h2></div><button className="icon-button" onClick={() => setModal(null)}><X size={18}/></button></div>{modal==='server' ? <><div className="notice"><Shield size={17}/><span>Use an official Discord bot. Never enter your personal Discord account token.</span></div><label className="field-label">BOT TOKEN<input type="password" value={botToken} onChange={e=>setBotToken(e.target.value)} placeholder="Paste your Discord bot token" autoComplete="off"/></label><label className="field-label">SERVER ID<input value={serverId} onChange={e=>setServerId(e.target.value)} placeholder="Enter your Discord server ID"/></label><div className="modal-hint">Create a bot in the Discord Developer Portal, invite it to your server with Manage Channels and Manage Roles, then paste its bot token here. The token is encrypted in Windows secure storage.</div><button className="primary-button full-button" disabled={busy} onClick={connectServer}>{busy ? 'Connecting…' : 'Connect bot & load server'} <ChevronRight size={16}/></button></> : <><label className="field-label">{modal==='category'?'CATEGORY NAME':modal==='role'?'ROLE NAME':'CHANNEL NAME'}<input autoFocus value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>e.key==='Enter'&&(modal==='category'?addCategory():modal==='role'?addRole():addChannel())} placeholder={modal==='category'?'e.g. COMMUNITY':modal==='role'?'e.g. Moderator':'e.g. general-chat'}/></label>{modal==='channel'&&<label className="field-label">CHANNEL TYPE<select value={channelType} onChange={e=>setChannelType(e.target.value as 'text'|'voice')}><option value="text">Text channel</option><option value="voice">Voice channel</option></select></label>}<div className="modal-hint">This action will make a real change to the connected Discord server.</div><button className="primary-button full-button" disabled={busy || !connected} onClick={modal==='category'?addCategory:modal==='role'?addRole:addChannel}>{busy ? 'Working…' : `Create ${modal}`} <Plus size={16}/></button></>}</div></div>}
+    {modal && <div className="modal-backdrop" onMouseDown={e => {if(e.target===e.currentTarget)setModal(null)}}><div className="modal-card"><div className="modal-top"><div><span className="eyebrow">WHIPPIN WORKSPACE</span><h2>{modal==='server'?'Discord sunucusuna bağlan':modal==='channel'?'Kanal oluştur':modal==='category'?'Kategori oluştur':'Rol oluştur'}</h2></div><button className="icon-button" onClick={() => setModal(null)}><X size={18}/></button></div>{modal==='server' ? <><div className="notice"><Shield size={17}/><span>Use an official Discord bot. Never enter your personal Discord account token.</span></div><label className="field-label">BOT TOKEN<input type="password" value={botToken} onChange={e=>setBotToken(e.target.value)} placeholder="Paste your Discord bot token" autoComplete="off"/></label><label className="field-label">SERVER ID<input value={serverId} onChange={e=>setServerId(e.target.value)} placeholder="Enter your Discord server ID"/></label><div className="modal-hint">Create a bot in the Discord Developer Portal, invite it to your server with Manage Channels and Manage Roles, then paste its bot token here. The token is encrypted in Windows secure storage.</div><button className="primary-button full-button" disabled={busy} onClick={connectServer}>{busy ? 'Bağlanıyor…' : 'Botu bağla ve sunucuyu yükle'} <ChevronRight size={16}/></button></> : <><label className="field-label">{modal==='category'?'KATEGORİ ADI':modal==='role'?'ROL ADI':'KANAL ADI'}<input autoFocus value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>e.key==='Enter'&&(modal==='category'?addCategory():modal==='role'?addRole():addChannel())} placeholder={modal==='category'?'örn. TOPLULUK':modal==='role'?'örn. Moderatör':'örn. genel-sohbet'}/></label>{modal==='channel'&&<label className="field-label">CHANNEL TYPE<select value={channelType} onChange={e=>setChannelType(e.target.value as 'text'|'voice')}><option value="text">Text channel</option><option value="voice">Voice channel</option></select></label>}<div className="modal-hint">This action will make a real change to the connected Discord server.</div><button className="primary-button full-button" disabled={busy || !connected} onClick={modal==='category'?addCategory:modal==='role'?addRole:addChannel}>{busy ? 'İşleniyor…' : `Create ${modal}`} <Plus size={16}/></button></>}</div></div>}
     {toast && <div className="toast"><Sparkles size={16}/>{toast}</div>}
   </div>;
 }
