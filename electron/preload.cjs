@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('whippin', {
   updateChannel: (payload) => ipcRenderer.invoke('discord:update-channel', payload),
   reorderChannels: (payload) => ipcRenderer.invoke('discord:reorder-channels', payload),
   setRolePermissions: (payload) => ipcRenderer.invoke('discord:set-role-permissions', payload),
+  syncCategoryPermissions: (categoryId) => ipcRenderer.invoke('discord:sync-category-permissions', categoryId),
   bulkDeleteChannels: (channelIds) => ipcRenderer.invoke('discord:bulk-delete-channels', channelIds),
   bulkUpdateChannels: (payload) => ipcRenderer.invoke('discord:bulk-update-channels', payload),
   setChannelPermissions: (payload) => ipcRenderer.invoke('discord:set-channel-permissions', payload),
