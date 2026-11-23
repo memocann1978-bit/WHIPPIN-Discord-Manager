@@ -10,6 +10,10 @@ declare global {
       banMember(payload: { guildId: string; userId: string; reason?: string }): Promise<null>;
       unbanMember(payload: { guildId: string; userId: string }): Promise<null>;
       getBans(guildId: string): Promise<{ user: DiscordUser; reason?: string }[]>;
+      getInvites(guildId: string): Promise<DiscordInvite[]>;
+      createInvite(payload: { channelId: string; maxAge: number; maxUses: number; temporary: boolean }): Promise<DiscordInvite>;
+      deleteInvite(code: string): Promise<null>;
+      getAuditLogs(guildId: string): Promise<{ id: string; action_type: number; user_id?: string; target_id?: string; reason?: string; changes?: { key: string; new_value?: unknown; old_value?: unknown }[] }[]>;
       getMessages(payload: { channelId: string; before?: string }): Promise<DiscordMessage[]>;
       deleteMessage(payload: { channelId: string; messageId: string }): Promise<null>;
       bulkDeleteMessages(payload: { channelId: string; messageIds: string[] }): Promise<null>;
@@ -33,6 +37,7 @@ declare global {
   }
   interface DiscordUser { id: string; username: string; global_name?: string | null; avatar?: string | null; }
   interface DiscordMember { user: DiscordUser; nick?: string | null; roles: string[]; joined_at?: string; communication_disabled_until?: string | null; }
+  interface DiscordInvite { code: string; channel: { id: string; name: string }; inviter?: DiscordUser; uses: number; max_uses: number; max_age: number; created_at: string; }
   interface DiscordMessage { id: string; content: string; author: DiscordUser; timestamp: string; attachments?: { url: string }[]; }
   interface DiscordChannel { id: string; name: string; type: number; parent_id: string | null; position: number; permission_overwrites?: { id: string; type: number; allow: string; deny: string }[]; }
   interface DiscordRole { id: string; name: string; color: number; position: number; permissions: string; }
